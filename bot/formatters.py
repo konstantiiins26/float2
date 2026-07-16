@@ -28,16 +28,18 @@ def format_opportunity(o: Opportunity) -> str:
         else "—"
     )
 
-    avg_note = "реальные продажи" if o.avg_source == "median" else "оценка CSFloat"
-
     lines = [
         f"🎯 <b>{prefix}{name}</b>",
         f"Износ: {escape(l.wear_name or '—')} | Float: <code>{float_str}</code>",
         "",
         f"🛒 Купить на CSFloat: <b>${o.buy_price:.2f}</b>",
-        f"📈 Средняя цена продажи CSFloat: <b>${o.csfloat_avg_price:.2f}</b> "
-        f"<i>({avg_note})</i>",
+        f"📈 Средняя цена CSFloat: <b>${o.csfloat_avg_price:.2f}</b> "
+        f"<i>(оценка)</i>",
     ]
+    if o.sales_median:
+        lines.append(
+            f"📊 Медиана реальных продаж CSFloat: <b>${o.sales_median:.2f}</b>"
+        )
     if o.market:
         lines.append(
             f"🟠 Цена на market.csgo: <b>${o.market.price:.2f}</b> "

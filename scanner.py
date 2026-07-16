@@ -64,25 +64,30 @@ class Scanner:
         for listing in listings:
             market_price = await self.market.get_price(listing.market_hash_name)
 
-            # Быстрая проверка на оценке CSFloat (без лишних запросов истории)
             opp = evaluate(listing, market_price, self.cfg)
             if not opp:
                 continue
 
-            # Уточняем реальной медианой продаж CSFloat. Если по честной средней
-            # сделка перестаёт быть выгодной — отбрасываем её.
+            # Дополняем реальной медианой продаж CSFloat — ТОЛЬКО для показа.
+            # На фильтрацию не влияет (чтобы не терять офферы), и явно
+            # неадекватные значения (сбой формата истории) игнорируем.
             if self.cfg.use_sales_median:
                 median = await self.csfloat.get_sales_median(listing.market_hash_name)
-                if median:
-                    refined = evaluate(listing, market_price, self.cfg, csfloat_avg=median)
-                    if refined is None:
-                        continue
-                    opp = refined
+                if median and self._median_is_sane(median, opp.csfloat_avg_price):
+                    opp.sales_median = round(median, 2)
 
             opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
         return opportunities
+
+    @staticmethod
+    def _median_is_sane(median: float, reference: float) -> bool:
+        """Отсекаем явно битые значения медианы (например, из-за неверного
+        формата истории). Медиана должна быть в разумном коридоре от оценки."""
+        if reference <= 0 or median <= 0:
+            return False
+        return 0.3 * reference <= median <= 3.0 * reference
 
     async def scan_new(self) -> list[Opportunity]:
         """Проход для авто-оповещений: только те сделки, что ещё не показывали."""

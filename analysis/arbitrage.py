@@ -43,8 +43,8 @@ class Opportunity:
     routes: list[ResaleRoute]        # отсортированы по убыванию прибыли
     liquidity: float
     float_edge_distance: float
-    csfloat_avg_price: float         # средняя цена продажи на CSFloat, USD
-    avg_source: str                  # "median" (реальные продажи) | "estimate" (оценка)
+    csfloat_avg_price: float              # оценка средней цены CSFloat (predicted), USD
+    sales_median: Optional[float] = None  # медиана реальных продаж CSFloat, USD (если есть)
 
     @property
     def best(self) -> ResaleRoute:
@@ -70,13 +70,14 @@ def evaluate(
     listing: CsFloatListing,
     market: Optional[MarketPrice],
     cfg: Config,
-    csfloat_avg: Optional[float] = None,
+    sales_median: Optional[float] = None,
 ) -> Optional[Opportunity]:
     """Оценивает один листинг. Возвращает Opportunity, если сделка проходит
     все фильтры, иначе None.
 
-    csfloat_avg — реальная средняя (медиана) цена продажи на CSFloat. Если
-    передана, используется для расчёта пути CSFloat вместо оценки predicted_price.
+    Решение о выгодности принимается по оценке CSFloat (predicted_price) и цене
+    market.csgo. sales_median — реальная медиана продаж CSFloat — сохраняется
+    для показа как справочная величина и не влияет на фильтрацию.
     """
     buy = listing.buy_price
     if buy <= 0:
@@ -102,14 +103,9 @@ def evaluate(
     ):
         return None
 
-    # Средняя цена продажи на CSFloat: реальная медиана продаж, если есть,
-    # иначе оценка CSFloat (predicted_price)
-    if csfloat_avg and csfloat_avg > 0:
-        csfloat_avg_price = csfloat_avg
-        avg_source = "median"
-    else:
-        csfloat_avg_price = listing.predicted_price
-        avg_source = "estimate"
+    # Расчёт идёт по оценке CSFloat (predicted_price) — устойчиво и не режет
+    # сделки из-за возможных сбоев истории продаж.
+    csfloat_avg_price = listing.predicted_price
 
     # Считаем оба пути перепродажи
     routes: list[ResaleRoute] = []
@@ -145,5 +141,5 @@ def evaluate(
         liquidity=liquidity_score(market_volume, listing.reference_quantity),
         float_edge_distance=round(distance_to_wear_edge(listing.float_value), 4),
         csfloat_avg_price=round(csfloat_avg_price, 2),
-        avg_source=avg_source,
+        sales_median=round(sales_median, 2) if sales_median else None,
     )

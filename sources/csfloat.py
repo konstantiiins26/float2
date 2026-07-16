@@ -161,7 +161,7 @@ class CsFloatClient:
             async with self._session.get(
                 url,
                 headers=self._headers(),
-                timeout=aiohttp.ClientTimeout(total=20),
+                timeout=aiohttp.ClientTimeout(total=8),
             ) as resp:
                 if resp.status != 200:
                     return None
