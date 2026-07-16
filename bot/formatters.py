@@ -37,9 +37,14 @@ def format_opportunity(o: Opportunity) -> str:
         f"<i>(оценка)</i>",
     ]
     if o.sales_median:
-        lines.append(
-            f"📊 Медиана реальных продаж CSFloat: <b>${o.sales_median:.2f}</b>"
-        )
+        median_line = f"📊 Медиана реальных продаж CSFloat: <b>${o.sales_median:.2f}</b>"
+        if o.median_profit_abs is not None:
+            emoji = "🟢" if o.median_profit_abs > 0 else "🔴"
+            median_line += (
+                f" {emoji} профит по средней: "
+                f"<b>{o.median_profit_abs:+.2f}$ / {o.median_profit_pct:+.1f}%</b>"
+            )
+        lines.append(median_line)
     if o.market:
         lines.append(
             f"🟠 Цена на market.csgo: <b>${o.market.price:.2f}</b> "

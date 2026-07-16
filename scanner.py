@@ -75,6 +75,13 @@ class Scanner:
                 median = await self.csfloat.get_sales_median(listing.market_hash_name)
                 if median and self._median_is_sane(median, opp.csfloat_avg_price):
                     opp.sales_median = round(median, 2)
+                    # Справочный профит, если продать по средней (медиане)
+                    net = median * (1.0 - self.cfg.csfloat_fee)
+                    profit = net - opp.buy_price
+                    opp.median_profit_abs = round(profit, 2)
+                    opp.median_profit_pct = round(
+                        profit / opp.buy_price * 100.0, 1
+                    ) if opp.buy_price > 0 else 0.0
 
             opportunities.append(opp)
 

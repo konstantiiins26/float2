@@ -45,6 +45,8 @@ class Opportunity:
     float_edge_distance: float
     csfloat_avg_price: float              # оценка средней цены CSFloat (predicted), USD
     sales_median: Optional[float] = None  # медиана реальных продаж CSFloat, USD (если есть)
+    median_profit_abs: Optional[float] = None  # справочный профит по медиане, USD
+    median_profit_pct: Optional[float] = None  # справочный профит по медиане, %
 
     @property
     def best(self) -> ResaleRoute:
