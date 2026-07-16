@@ -176,4 +176,10 @@ class ArbitrageBot:
         await update.message.reply_text(msg)
 
     def run(self) -> None:
+        # Python 3.14 больше не создаёт event loop автоматически — создаём его
+        # явно, иначе run_polling падает с "no current event loop in thread".
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
         self.app.run_polling(allowed_updates=Update.ALL_TYPES)
