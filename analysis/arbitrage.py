@@ -44,6 +44,7 @@ class Opportunity:
     liquidity: float
     float_edge_distance: float
     currency_symbol: str = "$"
+    live_status: str = ""  # "active" | "sold" | "unknown" (проверка перед отправкой)
 
     @property
     def best(self) -> ResaleRoute:

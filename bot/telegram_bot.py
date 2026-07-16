@@ -94,6 +94,14 @@ class ArbitrageBot:
                 logger.exception("Ошибка авто-скана: %s", exc)
                 continue
             for opp in fresh:
+                # Перед отправкой проверяем, не купили ли лот. Если куплен —
+                # не шлём (мёртвый оффер). Если проверить не удалось — шлём.
+                if self.cfg.check_live_status:
+                    opp.live_status = await self._scanner.csfloat.get_listing_status(
+                        opp.listing.listing_id
+                    )
+                    if opp.live_status == "sold":
+                        continue
                 await self._send(self.cfg.telegram_chat_id, format_opportunity(opp))
                 await asyncio.sleep(0.5)  # мягкий рейт-лимит Telegram
 
@@ -124,8 +132,12 @@ class ArbitrageBot:
         await update.message.reply_html(
             format_summary(opportunities), disable_web_page_preview=True
         )
-        # Детально топ-5
+        # Детально топ-5 (со свежей проверкой актуальности)
         for opp in opportunities[:5]:
+            if self.cfg.check_live_status:
+                opp.live_status = await self._scanner.csfloat.get_listing_status(
+                    opp.listing.listing_id
+                )
             await update.message.reply_html(
                 format_opportunity(opp), disable_web_page_preview=True
             )

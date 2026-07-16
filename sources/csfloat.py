@@ -154,3 +154,36 @@ class CsFloatClient:
                 l.predicted_price = round(l.predicted_price * self._usd_rate, 2)
 
         return listings
+
+    async def get_listing_status(self, listing_id: str) -> str:
+        """Проверяет актуальность лота в реальном времени.
+
+        Возвращает: "active" (ещё доступен), "sold" (куплен/снят),
+        "unknown" (не удалось проверить — сеть/лимит; тогда оффер всё равно
+        показываем, просто без гарантии)."""
+        if not listing_id:
+            return "unknown"
+        try:
+            async with self._session.get(
+                f"{BASE_URL}/listings/{listing_id}",
+                headers=self._headers(),
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as resp:
+                if resp.status == 404:
+                    return "sold"
+                if resp.status != 200:
+                    return "unknown"
+                payload = await resp.json()
+        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+            logger.debug("Не удалось проверить статус %s: %s", listing_id, exc)
+            return "unknown"
+
+        data = payload.get("data") if isinstance(payload, dict) else payload
+        if not isinstance(data, dict):
+            return "unknown"
+        state = str(data.get("state") or "").lower()
+        if state == "listed":
+            return "active"
+        if state:
+            return "sold"
+        return "unknown"

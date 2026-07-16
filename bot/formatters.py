@@ -96,7 +96,14 @@ def format_opportunity(o: Opportunity) -> str:
     if age:
         actuality.append(f"🕐 Выставлен {age}")
     actuality.append(f"👀 Наблюдают: {l.watchers}")
-    lines.append(" | ".join(actuality) + " · <i>активен на момент скана</i>")
+    lines.append(" | ".join(actuality))
+
+    status_line = {
+        "active": "✅ <b>Ещё доступен</b> (проверено только что)",
+        "sold": "❌ <b>Уже куплен/снят</b>",
+        "unknown": "⚠️ Статус не проверен — жми ссылку и смотри сам",
+    }.get(o.live_status, "🟡 Активен на момент скана")
+    lines.append(status_line)
 
     lines += [
         "",

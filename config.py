@@ -94,6 +94,9 @@ class Config:
     exclude_stickers: bool = True    # стикеры (Sticker | ...)
     exclude_souvenir: bool = True    # сувенирное оружие
 
+    # Проверять актуальность лота (куплен/нет) перед отправкой оффера
+    check_live_status: bool = True
+
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
 
@@ -125,6 +128,7 @@ class Config:
         cfg.usd_rate = _get_float("USD_RATE", 1.0 if cfg.currency == "USD" else 0.92)
         cfg.exclude_stickers = _get_bool("EXCLUDE_STICKERS", True)
         cfg.exclude_souvenir = _get_bool("EXCLUDE_SOUVENIR", True)
+        cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
         cfg._load_overrides()
         return cfg
 
