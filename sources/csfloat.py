@@ -72,9 +72,16 @@ def _parse_listing(raw: dict[str, Any]) -> Optional[CsFloatListing]:
 
 
 class CsFloatClient:
-    def __init__(self, session: aiohttp.ClientSession, api_key: str = "") -> None:
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        api_key: str = "",
+        usd_rate: float = 1.0,
+    ) -> None:
         self._session = session
         self._api_key = api_key
+        # Курс: сколько единиц целевой валюты в 1 USD (цены CSFloat приходят в USD)
+        self._usd_rate = usd_rate if usd_rate > 0 else 1.0
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -95,10 +102,11 @@ class CsFloatClient:
             "sort_by": sort_by,
             "type": "buy_now",
         }
+        # Пороги приходят в целевой валюте — конвертируем в USD-центы для API
         if min_price:
-            params["min_price"] = int(min_price * 100)
+            params["min_price"] = int(min_price / self._usd_rate * 100)
         if max_price:
-            params["max_price"] = int(max_price * 100)
+            params["max_price"] = int(max_price / self._usd_rate * 100)
 
         try:
             async with self._session.get(
@@ -124,5 +132,12 @@ class CsFloatClient:
             logger.error("Неожиданный формат ответа CSFloat: %r", type(payload))
             return []
 
-        listings = [_parse_listing(r) for r in rows]
-        return [l for l in listings if l is not None]
+        listings = [l for l in (_parse_listing(r) for r in rows) if l is not None]
+
+        # Конвертируем цены USD -> целевая валюта
+        if self._usd_rate != 1.0:
+            for l in listings:
+                l.buy_price = round(l.buy_price * self._usd_rate, 2)
+                l.predicted_price = round(l.predicted_price * self._usd_rate, 2)
+
+        return listings

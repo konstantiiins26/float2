@@ -23,8 +23,10 @@ SEEN_MAX = 5000
 class Scanner:
     def __init__(self, cfg: Config, session: aiohttp.ClientSession) -> None:
         self.cfg = cfg
-        self.csfloat = CsFloatClient(session, cfg.csfloat_api_key)
-        self.market = MarketCsgoClient(session, cfg.market_csgo_api_key)
+        self.csfloat = CsFloatClient(session, cfg.csfloat_api_key, usd_rate=cfg.usd_rate)
+        self.market = MarketCsgoClient(
+            session, cfg.market_csgo_api_key, currency=cfg.currency
+        )
         self._seen: set[str] = self._load_seen()
         self.last_error: str | None = None
 

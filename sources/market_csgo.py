@@ -11,12 +11,19 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Optional
+from urllib.parse import quote
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
 
-PRICES_URL = "https://market.csgo.com/api/v2/prices/USD.json"
+# {currency} = USD | EUR | RUB — market.csgo отдаёт прайс сразу в нужной валюте
+PRICES_URL_TMPL = "https://market.csgo.com/api/v2/prices/{currency}.json"
+
+
+def market_url(market_hash_name: str) -> str:
+    """Ссылка на страницу поиска предмета на market.csgo."""
+    return f"https://market.csgo.com/en/?search={quote(market_hash_name)}"
 
 
 @dataclass
@@ -32,10 +39,12 @@ class MarketCsgoClient:
         session: aiohttp.ClientSession,
         api_key: str = "",
         cache_ttl: int = 300,
+        currency: str = "EUR",
     ) -> None:
         self._session = session
         self._api_key = api_key
         self._cache_ttl = cache_ttl
+        self._currency = currency if currency in ("USD", "EUR", "RUB") else "USD"
         self._cache: dict[str, MarketPrice] = {}
         self._cache_ts: float = 0.0
 
@@ -48,7 +57,7 @@ class MarketCsgoClient:
             params["key"] = self._api_key
         try:
             async with self._session.get(
-                PRICES_URL,
+                PRICES_URL_TMPL.format(currency=self._currency),
                 params=params,
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:

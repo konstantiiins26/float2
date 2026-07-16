@@ -43,10 +43,19 @@ class Opportunity:
     routes: list[ResaleRoute]        # отсортированы по убыванию прибыли
     liquidity: float
     float_edge_distance: float
+    currency_symbol: str = "$"
 
     @property
     def best(self) -> ResaleRoute:
         return self.routes[0]
+
+    @property
+    def csfloat_route(self) -> Optional[ResaleRoute]:
+        return next((r for r in self.routes if r.venue == "CSFloat"), None)
+
+    @property
+    def market_route(self) -> Optional[ResaleRoute]:
+        return next((r for r in self.routes if r.venue == "market.csgo"), None)
 
 
 def _route(venue: str, buy_price: float, gross: float, fee: float) -> Optional[ResaleRoute]:
@@ -128,4 +137,5 @@ def evaluate(
         routes=routes,
         liquidity=liquidity_score(market_volume, listing.reference_quantity),
         float_edge_distance=round(distance_to_wear_edge(listing.float_value), 4),
+        currency_symbol=cfg.currency_symbol,
     )

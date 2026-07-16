@@ -79,8 +79,16 @@ class Config:
     csfloat_fee: float
     market_csgo_fee: float
 
+    # Валюта отображения и курс конвертации цен CSFloat (они приходят в USD)
+    currency: str = "EUR"
+    usd_rate: float = 0.92  # сколько единиц currency в 1 USD (для CSFloat)
+
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
+
+    @property
+    def currency_symbol(self) -> str:
+        return {"EUR": "€", "USD": "$", "RUB": "₽"}.get(self.currency, self.currency + " ")
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -102,6 +110,8 @@ class Config:
             csfloat_fee=_get_float("CSFLOAT_FEE", 0.02),
             market_csgo_fee=_get_float("MARKET_CSGO_FEE", 0.05),
         )
+        cfg.currency = (os.getenv("CURRENCY", "EUR").strip().upper() or "EUR")
+        cfg.usd_rate = _get_float("USD_RATE", 1.0 if cfg.currency == "USD" else 0.92)
         cfg._load_overrides()
         return cfg
 
