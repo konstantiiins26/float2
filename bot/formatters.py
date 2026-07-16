@@ -4,7 +4,6 @@ from __future__ import annotations
 from html import escape
 
 from analysis.arbitrage import Opportunity
-from sources.market_csgo import market_url
 
 
 def _wear_tag(o: Opportunity) -> str:
@@ -33,25 +32,8 @@ def format_opportunity(o: Opportunity) -> str:
         f"Износ: {escape(l.wear_name or '—')} | Float: <code>{float_str}</code>",
         "",
         f"🛒 Купить на CSFloat: <b>${o.buy_price:.2f}</b>",
-        f"📈 Средняя цена CSFloat: <b>${o.csfloat_avg_price:.2f}</b> "
-        f"<i>(оценка)</i>",
     ]
-    if o.sales_median:
-        median_line = f"📊 Медиана реальных продаж CSFloat: <b>${o.sales_median:.2f}</b>"
-        if o.median_profit_abs is not None:
-            emoji = "🟢" if o.median_profit_abs > 0 else "🔴"
-            median_line += (
-                f" {emoji} профит по средней: "
-                f"<b>{o.median_profit_abs:+.2f}$ / {o.median_profit_pct:+.1f}%</b>"
-            )
-        lines.append(median_line)
-    if o.market:
-        lines.append(
-            f"🟠 Цена на market.csgo: <b>${o.market.price:.2f}</b> "
-            f"<i>(мин., для быстрой продажи)</i>"
-        )
 
-    lines.append("")
     for r in o.routes:
         emoji = "🟢" if r.profit_abs > 0 else "🔴"
         lines.append(
@@ -70,14 +52,9 @@ def format_opportunity(o: Opportunity) -> str:
         )
     lines.append(f"   CSFloat: {l.reference_quantity} листингов")
     lines.append(f"📏 Отступ флоата от границы износа: {o.float_edge_distance}")
-
-    links = [f"🔗 <a href=\"{l.url}\">Открыть на CSFloat</a>"]
-    links.append(
-        f"🛒 <a href=\"{market_url(l.market_hash_name)}\">Найти на market.csgo</a>"
-    )
     lines += [
         "",
-        " · ".join(links),
+        f"🔗 <a href=\"{l.url}\">Открыть на CSFloat</a>",
         f"⭐ Лучший путь: <b>{escape(best.venue)}</b> "
         f"({best.profit_abs:+.2f}$ / {best.profit_pct:+.1f}%)",
     ]

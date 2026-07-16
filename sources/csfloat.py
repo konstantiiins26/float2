@@ -8,22 +8,14 @@
 from __future__ import annotations
 
 import logging
-import statistics
-import time
 from dataclasses import dataclass
 from typing import Any, Optional
-from urllib.parse import quote
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://csfloat.com/api/v1"
-
-# Сколько последних продаж усредняем и как долго кэшируем медиану (сек)
-SALES_SAMPLE = 15
-SALES_CACHE_TTL = 3600      # успешный результат храним час
-SALES_NEG_CACHE_TTL = 900   # если истории нет/ошибка — не долбим 15 минут
 
 
 @dataclass
@@ -83,8 +75,6 @@ class CsFloatClient:
     def __init__(self, session: aiohttp.ClientSession, api_key: str = "") -> None:
         self._session = session
         self._api_key = api_key
-        # Кэш медианы продаж: name -> (время, значение|None)
-        self._sales_cache: dict[str, tuple[float, Optional[float]]] = {}
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -136,58 +126,3 @@ class CsFloatClient:
 
         listings = [_parse_listing(r) for r in rows]
         return [l for l in listings if l is not None]
-
-    async def get_sales_median(self, market_hash_name: str) -> Optional[float]:
-        """Медиана цен последних реальных продаж предмета на CSFloat, USD.
-
-        Берётся из истории сделок (эндпоинт history/<name>/sales). Результат
-        кэшируется. Если история недоступна или формат неожиданный —
-        возвращает None (вызывающий код откатывается на оценку predicted_price).
-        """
-        now = time.time()
-        cached = self._sales_cache.get(market_hash_name)
-        if cached and (now - cached[0]) < (
-            SALES_CACHE_TTL if cached[1] is not None else SALES_NEG_CACHE_TTL
-        ):
-            return cached[1]
-
-        median = await self._fetch_sales_median(market_hash_name)
-        self._sales_cache[market_hash_name] = (now, median)
-        return median
-
-    async def _fetch_sales_median(self, market_hash_name: str) -> Optional[float]:
-        url = f"{BASE_URL}/history/{quote(market_hash_name, safe='')}/sales"
-        try:
-            async with self._session.get(
-                url,
-                headers=self._headers(),
-                timeout=aiohttp.ClientTimeout(total=8),
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                payload = await resp.json()
-        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
-            logger.debug("История продаж CSFloat недоступна для %s: %s",
-                         market_hash_name, exc)
-            return None
-
-        rows = payload.get("data") if isinstance(payload, dict) else payload
-        if not isinstance(rows, list) or not rows:
-            return None
-
-        prices: list[float] = []
-        for row in rows[:SALES_SAMPLE]:
-            if not isinstance(row, dict):
-                continue
-            # цена продажи может лежать в разных полях, все в центах
-            raw = row.get("price") or row.get("total_price") or row.get("sold_price")
-            if raw is None:
-                continue
-            try:
-                prices.append(float(raw) / 100.0)
-            except (TypeError, ValueError):
-                continue
-
-        if not prices:
-            return None
-        return round(statistics.median(prices), 2)

@@ -43,10 +43,6 @@ class Opportunity:
     routes: list[ResaleRoute]        # отсортированы по убыванию прибыли
     liquidity: float
     float_edge_distance: float
-    csfloat_avg_price: float              # оценка средней цены CSFloat (predicted), USD
-    sales_median: Optional[float] = None  # медиана реальных продаж CSFloat, USD (если есть)
-    median_profit_abs: Optional[float] = None  # справочный профит по медиане, USD
-    median_profit_pct: Optional[float] = None  # справочный профит по медиане, %
 
     @property
     def best(self) -> ResaleRoute:
@@ -72,15 +68,9 @@ def evaluate(
     listing: CsFloatListing,
     market: Optional[MarketPrice],
     cfg: Config,
-    sales_median: Optional[float] = None,
 ) -> Optional[Opportunity]:
     """Оценивает один листинг. Возвращает Opportunity, если сделка проходит
-    все фильтры, иначе None.
-
-    Решение о выгодности принимается по оценке CSFloat (predicted_price) и цене
-    market.csgo. sales_median — реальная медиана продаж CSFloat — сохраняется
-    для показа как справочная величина и не влияет на фильтрацию.
-    """
+    все фильтры, иначе None."""
     buy = listing.buy_price
     if buy <= 0:
         return None
@@ -105,14 +95,10 @@ def evaluate(
     ):
         return None
 
-    # Расчёт идёт по оценке CSFloat (predicted_price) — устойчиво и не режет
-    # сделки из-за возможных сбоев истории продаж.
-    csfloat_avg_price = listing.predicted_price
-
     # Считаем оба пути перепродажи
     routes: list[ResaleRoute] = []
     r_csfloat = _route(
-        "CSFloat", buy, csfloat_avg_price, cfg.csfloat_fee
+        "CSFloat", buy, listing.predicted_price, cfg.csfloat_fee
     )
     if r_csfloat:
         routes.append(r_csfloat)
@@ -142,6 +128,4 @@ def evaluate(
         routes=routes,
         liquidity=liquidity_score(market_volume, listing.reference_quantity),
         float_edge_distance=round(distance_to_wear_edge(listing.float_value), 4),
-        csfloat_avg_price=round(csfloat_avg_price, 2),
-        sales_median=round(sales_median, 2) if sales_median else None,
     )

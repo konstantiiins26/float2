@@ -79,9 +79,6 @@ class Config:
     csfloat_fee: float
     market_csgo_fee: float
 
-    # Использовать реальную историю продаж CSFloat для средней цены
-    use_sales_median: bool = True
-
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
 
@@ -104,9 +101,6 @@ class Config:
             float_edge_margin=_get_float("FLOAT_EDGE_MARGIN", 0.01),
             csfloat_fee=_get_float("CSFLOAT_FEE", 0.02),
             market_csgo_fee=_get_float("MARKET_CSGO_FEE", 0.05),
-            use_sales_median=os.getenv(
-                "CSFLOAT_USE_SALES_HISTORY", "true"
-            ).strip().lower() not in ("0", "false", "no", ""),
         )
         cfg._load_overrides()
         return cfg
