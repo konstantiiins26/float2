@@ -102,6 +102,7 @@ class ArbitrageBot:
                     )
                     if opp.live_status == "sold":
                         continue
+                await self._scanner.enrich_stability(opp)
                 await self._send(self.cfg.telegram_chat_id, format_opportunity(opp))
                 await asyncio.sleep(0.5)  # мягкий рейт-лимит Telegram
 
@@ -138,6 +139,7 @@ class ArbitrageBot:
                 opp.live_status = await self._scanner.csfloat.get_listing_status(
                     opp.listing.listing_id
                 )
+            await self._scanner.enrich_stability(opp)
             await update.message.reply_html(
                 format_opportunity(opp), disable_web_page_preview=True
             )

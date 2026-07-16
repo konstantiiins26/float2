@@ -97,6 +97,9 @@ class Config:
     # Проверять актуальность лота (куплен/нет) перед отправкой оффера
     check_live_status: bool = True
 
+    # Анализировать стабильность цены по истории продаж
+    analyze_stability: bool = True
+
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
 
@@ -129,6 +132,7 @@ class Config:
         cfg.exclude_stickers = _get_bool("EXCLUDE_STICKERS", True)
         cfg.exclude_souvenir = _get_bool("EXCLUDE_SOUVENIR", True)
         cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
+        cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
         cfg._load_overrides()
         return cfg
 

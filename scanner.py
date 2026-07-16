@@ -10,6 +10,7 @@ from pathlib import Path
 import aiohttp
 
 from analysis.arbitrage import Opportunity, evaluate
+from analysis.stability import analyze as analyze_stability
 from config import Config
 from sources.csfloat import CsFloatClient
 from sources.market_csgo import MarketCsgoClient
@@ -71,6 +72,15 @@ class Scanner:
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
         return opportunities
+
+    async def enrich_stability(self, opp: Opportunity) -> None:
+        """Дополняет оффер анализом стабильности цены по истории продаж.
+        Ошибки/отсутствие данных не мешают отправке оффера."""
+        if not self.cfg.analyze_stability:
+            return
+        prices = await self.csfloat.get_price_history(opp.listing.market_hash_name)
+        if prices:
+            opp.stability = analyze_stability(prices)
 
     async def scan_new(self) -> list[Opportunity]:
         """Проход для авто-оповещений: только те сделки, что ещё не показывали."""

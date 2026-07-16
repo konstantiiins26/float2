@@ -29,6 +29,28 @@ def _age_str(created_at: str) -> str:
     return f"{secs // 86400} дн назад"
 
 
+def _stability_line(rep) -> str:
+    """Строка анализа стабильности цены по истории продаж."""
+    label = {
+        "stable": "🟢 стабильная",
+        "medium": "🟡 средняя стабильность",
+        "unstable": "🔴 нестабильная",
+        "unknown": "⚪ мало данных",
+    }.get(rep.label, "⚪ мало данных")
+    trend = {
+        "up": "растёт ↗",
+        "down": "падает ↘",
+        "flat": "ровный →",
+        "unknown": "—",
+    }.get(rep.trend, "—")
+    if rep.label == "unknown":
+        return f"📉 Цена: {label} (продаж: {rep.sample})"
+    return (
+        f"📉 Цена: {label} (разброс {rep.cv * 100:.0f}%) · "
+        f"тренд {trend} · по {rep.sample} продажам"
+    )
+
+
 def _wear_tag(o: Opportunity) -> str:
     tags = []
     if o.listing.is_stattrak:
@@ -104,6 +126,9 @@ def format_opportunity(o: Opportunity) -> str:
         "unknown": "⚠️ Статус не проверен — жми ссылку и смотри сам",
     }.get(o.live_status, "🟡 Активен на момент скана")
     lines.append(status_line)
+
+    if o.stability is not None:
+        lines.append(_stability_line(o.stability))
 
     lines += [
         "",

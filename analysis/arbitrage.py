@@ -21,6 +21,7 @@ from analysis.liquidity import (
     is_liquid,
     liquidity_score,
 )
+from analysis.stability import StabilityReport
 from config import Config
 from sources.csfloat import CsFloatListing
 from sources.market_csgo import MarketPrice
@@ -45,6 +46,7 @@ class Opportunity:
     float_edge_distance: float
     currency_symbol: str = "$"
     live_status: str = ""  # "active" | "sold" | "unknown" (проверка перед отправкой)
+    stability: Optional["StabilityReport"] = None  # анализ стабильности цены
 
     @property
     def best(self) -> ResaleRoute:

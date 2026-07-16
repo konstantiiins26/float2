@@ -8,14 +8,20 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional
+from urllib.parse import quote
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://csfloat.com/api/v1"
+
+HISTORY_SAMPLE = 30       # сколько последних продаж берём для анализа
+HISTORY_CACHE_TTL = 3600  # кэш истории цен, сек
 
 
 @dataclass
@@ -52,6 +58,21 @@ def _cents_to_usd(value: Any) -> float:
         return round(float(value) / 100.0, 2)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _row_time(row: dict[str, Any], index: int) -> float:
+    """Время продажи как unix-timestamp для сортировки. Если распарсить не
+    вышло — используем обратный индекс (CSFloat отдаёт новые продажи первыми,
+    поэтому больший индекс = более старая продажа)."""
+    raw = row.get("sold_at") or row.get("created_at") or row.get("date") or row.get("timestamp")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if isinstance(raw, str) and raw:
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            pass
+    return float(-index)
 
 
 def _parse_listing(raw: dict[str, Any]) -> Optional[CsFloatListing]:
@@ -95,6 +116,8 @@ class CsFloatClient:
         self._api_key = api_key
         # Курс: сколько единиц целевой валюты в 1 USD (цены CSFloat приходят в USD)
         self._usd_rate = usd_rate if usd_rate > 0 else 1.0
+        # Кэш истории цен: name -> (время, список цен в целевой валюте)
+        self._history_cache: dict[str, tuple[float, list[float]]] = {}
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -187,3 +210,53 @@ class CsFloatClient:
         if state:
             return "sold"
         return "unknown"
+
+    async def get_price_history(self, market_hash_name: str) -> list[float]:
+        """Цены последних продаж предмета (в целевой валюте, хронологически:
+        старые → новые). Пустой список = данных нет / ошибка. Кэшируется."""
+        now = time.time()
+        cached = self._history_cache.get(market_hash_name)
+        if cached and (now - cached[0]) < HISTORY_CACHE_TTL:
+            return cached[1]
+
+        prices = await self._fetch_price_history(market_hash_name)
+        self._history_cache[market_hash_name] = (now, prices)
+        return prices
+
+    async def _fetch_price_history(self, market_hash_name: str) -> list[float]:
+        url = f"{BASE_URL}/history/{quote(market_hash_name, safe='')}/sales"
+        try:
+            async with self._session.get(
+                url,
+                headers=self._headers(),
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as resp:
+                if resp.status != 200:
+                    return []
+                payload = await resp.json()
+        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+            logger.debug("История цен CSFloat недоступна для %s: %s",
+                         market_hash_name, exc)
+            return []
+
+        rows = payload.get("data") if isinstance(payload, dict) else payload
+        if not isinstance(rows, list) or not rows:
+            return []
+
+        points: list[tuple[float, float]] = []
+        for i, row in enumerate(rows[:HISTORY_SAMPLE]):
+            if not isinstance(row, dict):
+                continue
+            raw_price = row.get("price") or row.get("total_price") or row.get("sold_price")
+            if raw_price is None:
+                continue
+            try:
+                price = float(raw_price) / 100.0 * self._usd_rate
+            except (TypeError, ValueError):
+                continue
+            points.append((_row_time(row, i), price))
+
+        if not points:
+            return []
+        points.sort(key=lambda p: p[0])  # хронологически: старые → новые
+        return [p for _, p in points]
