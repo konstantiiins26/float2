@@ -43,6 +43,8 @@ class Opportunity:
     routes: list[ResaleRoute]        # отсортированы по убыванию прибыли
     liquidity: float
     float_edge_distance: float
+    csfloat_avg_price: float         # средняя цена продажи на CSFloat, USD
+    avg_source: str                  # "median" (реальные продажи) | "estimate" (оценка)
 
     @property
     def best(self) -> ResaleRoute:
@@ -68,9 +70,14 @@ def evaluate(
     listing: CsFloatListing,
     market: Optional[MarketPrice],
     cfg: Config,
+    csfloat_avg: Optional[float] = None,
 ) -> Optional[Opportunity]:
     """Оценивает один листинг. Возвращает Opportunity, если сделка проходит
-    все фильтры, иначе None."""
+    все фильтры, иначе None.
+
+    csfloat_avg — реальная средняя (медиана) цена продажи на CSFloat. Если
+    передана, используется для расчёта пути CSFloat вместо оценки predicted_price.
+    """
     buy = listing.buy_price
     if buy <= 0:
         return None
@@ -95,10 +102,19 @@ def evaluate(
     ):
         return None
 
+    # Средняя цена продажи на CSFloat: реальная медиана продаж, если есть,
+    # иначе оценка CSFloat (predicted_price)
+    if csfloat_avg and csfloat_avg > 0:
+        csfloat_avg_price = csfloat_avg
+        avg_source = "median"
+    else:
+        csfloat_avg_price = listing.predicted_price
+        avg_source = "estimate"
+
     # Считаем оба пути перепродажи
     routes: list[ResaleRoute] = []
     r_csfloat = _route(
-        "CSFloat", buy, listing.predicted_price, cfg.csfloat_fee
+        "CSFloat", buy, csfloat_avg_price, cfg.csfloat_fee
     )
     if r_csfloat:
         routes.append(r_csfloat)
@@ -128,4 +144,6 @@ def evaluate(
         routes=routes,
         liquidity=liquidity_score(market_volume, listing.reference_quantity),
         float_edge_distance=round(distance_to_wear_edge(listing.float_value), 4),
+        csfloat_avg_price=round(csfloat_avg_price, 2),
+        avg_source=avg_source,
     )

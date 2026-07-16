@@ -63,9 +63,23 @@ class Scanner:
         opportunities: list[Opportunity] = []
         for listing in listings:
             market_price = await self.market.get_price(listing.market_hash_name)
+
+            # Быстрая проверка на оценке CSFloat (без лишних запросов истории)
             opp = evaluate(listing, market_price, self.cfg)
-            if opp:
-                opportunities.append(opp)
+            if not opp:
+                continue
+
+            # Уточняем реальной медианой продаж CSFloat. Если по честной средней
+            # сделка перестаёт быть выгодной — отбрасываем её.
+            if self.cfg.use_sales_median:
+                median = await self.csfloat.get_sales_median(listing.market_hash_name)
+                if median:
+                    refined = evaluate(listing, market_price, self.cfg, csfloat_avg=median)
+                    if refined is None:
+                        continue
+                    opp = refined
+
+            opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
         return opportunities

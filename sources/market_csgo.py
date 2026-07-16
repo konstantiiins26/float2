@@ -11,12 +11,18 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Optional
+from urllib.parse import quote
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
 
 PRICES_URL = "https://market.csgo.com/api/v2/prices/USD.json"
+
+
+def market_url(market_hash_name: str) -> str:
+    """Ссылка на страницу поиска предмета на market.csgo."""
+    return f"https://market.csgo.com/en/?search={quote(market_hash_name)}"
 
 
 @dataclass
