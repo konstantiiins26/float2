@@ -31,10 +31,20 @@ class CsFloatListing:
     wear_name: str
     is_stattrak: bool
     is_souvenir: bool
+    created_at: str = ""      # когда листинг выставлен (ISO8601)
+    watchers: int = 0         # сколько человек «наблюдают» за лотом
+    item_type: str = ""       # тип предмета (skin, sticker, ...) если есть
 
     @property
     def url(self) -> str:
         return f"https://csfloat.com/item/{self.listing_id}"
+
+    @property
+    def is_sticker(self) -> bool:
+        return (
+            self.item_type == "sticker"
+            or self.market_hash_name.startswith("Sticker |")
+        )
 
 
 def _cents_to_usd(value: Any) -> float:
@@ -65,6 +75,9 @@ def _parse_listing(raw: dict[str, Any]) -> Optional[CsFloatListing]:
             wear_name=item.get("wear_name") or "",
             is_stattrak=bool(item.get("is_stattrak")),
             is_souvenir=bool(item.get("is_souvenir")),
+            created_at=str(raw.get("created_at") or ""),
+            watchers=int(raw.get("watchers") or 0),
+            item_type=str(item.get("type") or ""),
         )
     except (TypeError, ValueError) as exc:
         logger.warning("Не удалось разобрать листинг CSFloat: %s", exc)

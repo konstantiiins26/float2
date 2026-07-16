@@ -1,10 +1,32 @@
 """Форматирование сообщений для Telegram (HTML parse mode)."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from html import escape
 
 from analysis.arbitrage import Opportunity
 from sources.market_csgo import market_url
+
+
+def _age_str(created_at: str) -> str:
+    """Человекочитаемая «свежесть» листинга по времени выставления."""
+    if not created_at:
+        return ""
+    try:
+        ts = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    delta = datetime.now(timezone.utc) - ts
+    secs = int(delta.total_seconds())
+    if secs < 0:
+        secs = 0
+    if secs < 60:
+        return f"{secs} сек назад"
+    if secs < 3600:
+        return f"{secs // 60} мин назад"
+    if secs < 86400:
+        return f"{secs // 3600} ч назад"
+    return f"{secs // 86400} дн назад"
 
 
 def _wear_tag(o: Opportunity) -> str:
@@ -67,6 +89,14 @@ def format_opportunity(o: Opportunity) -> str:
         lines.append(f"   market.csgo: объём {o.market.volume} лот(ов)")
     lines.append(f"   CSFloat: {l.reference_quantity} листингов")
     lines.append(f"📏 Отступ флоата от границы износа: {o.float_edge_distance}")
+
+    # Актуальность оффера: когда выставлен + сколько наблюдают
+    age = _age_str(l.created_at)
+    actuality = []
+    if age:
+        actuality.append(f"🕐 Выставлен {age}")
+    actuality.append(f"👀 Наблюдают: {l.watchers}")
+    lines.append(" | ".join(actuality) + " · <i>активен на момент скана</i>")
 
     lines += [
         "",

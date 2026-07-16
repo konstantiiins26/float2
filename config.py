@@ -34,6 +34,13 @@ def _get_int(name: str, default: int) -> int:
     return int(_get_float(name, default))
 
 
+def _get_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return raw.strip().lower() not in ("0", "false", "no", "off")
+
+
 # Параметры, которые можно менять из чата: имя -> (тип, минимум, максимум, подпись)
 SETTABLE: dict[str, tuple[type, float, float | None, str]] = {
     "min_profit_percent": (float, 0, None, "мин. прибыль, %"),
@@ -83,6 +90,10 @@ class Config:
     currency: str = "EUR"
     usd_rate: float = 0.92  # сколько единиц currency в 1 USD (для CSFloat)
 
+    # Что исключать из выдачи
+    exclude_stickers: bool = True    # стикеры (Sticker | ...)
+    exclude_souvenir: bool = True    # сувенирное оружие
+
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
 
@@ -112,6 +123,8 @@ class Config:
         )
         cfg.currency = (os.getenv("CURRENCY", "EUR").strip().upper() or "EUR")
         cfg.usd_rate = _get_float("USD_RATE", 1.0 if cfg.currency == "USD" else 0.92)
+        cfg.exclude_stickers = _get_bool("EXCLUDE_STICKERS", True)
+        cfg.exclude_souvenir = _get_bool("EXCLUDE_SOUVENIR", True)
         cfg._load_overrides()
         return cfg
 

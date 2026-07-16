@@ -84,6 +84,12 @@ def evaluate(
     if buy <= 0:
         return None
 
+    # Исключаем нежелательные категории
+    if cfg.exclude_souvenir and listing.is_souvenir:
+        return None
+    if cfg.exclude_stickers and listing.is_sticker:
+        return None
+
     # Ценовой диапазон покупки
     if cfg.min_buy_price and buy < cfg.min_buy_price:
         return None
