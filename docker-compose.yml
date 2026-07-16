@@ -1,0 +1,9 @@
+services:
+  bot:
+    build: .
+    container_name: csfloat-arb-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Сохраняем состояние (виденные лоты, настройки из /set) между перезапусками
+      - ./data:/data

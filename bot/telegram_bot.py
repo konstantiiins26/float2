@@ -29,6 +29,7 @@ HELP_TEXT = (
     "/scan — показать лучшие сделки прямо сейчас\n"
     "/status — состояние бота и текущие фильтры\n"
     "/settings — показать все параметры фильтров\n"
+    "/set имя значение — изменить фильтр на лету (напр. <code>/set min_profit_percent 15</code>)\n"
     "/help — эта справка\n\n"
     "Авто-оповещения приходят сами, как только появляется новая выгодная сделка."
 )
@@ -55,6 +56,7 @@ class ArbitrageBot:
         self.app.add_handler(CommandHandler("scan", self.cmd_scan))
         self.app.add_handler(CommandHandler("status", self.cmd_status))
         self.app.add_handler(CommandHandler("settings", self.cmd_settings))
+        self.app.add_handler(CommandHandler("set", self.cmd_set))
 
     # ---- Жизненный цикл ----
     async def _on_startup(self, app: Application) -> None:
@@ -156,9 +158,22 @@ class ArbitrageBot:
             f"Комиссии: CSFloat {c.csfloat_fee*100:.0f}%, "
             f"market.csgo {c.market_csgo_fee*100:.0f}%\n"
             f"Листингов за проход: {c.scan_limit}, сортировка: {c.scan_sort_by}\n\n"
-            "Параметры меняются в файле .env (перезапусти бота после изменений)."
+            "Многие фильтры можно менять прямо в чате: /set имя значение "
+            "(список — просто /set)."
         )
         await update.message.reply_html(text)
+
+    async def cmd_set(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        args = ctx.args or []
+        if len(args) < 2:
+            await update.message.reply_html(
+                self.cfg.settable_help()
+                + "\n\nПример: <code>/set min_profit_percent 15</code>"
+            )
+            return
+        key, raw = args[0], args[1]
+        ok, msg = self.cfg.set_param(key, raw)
+        await update.message.reply_text(msg)
 
     def run(self) -> None:
         self.app.run_polling(allowed_updates=Update.ALL_TYPES)

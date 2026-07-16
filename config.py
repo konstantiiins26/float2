@@ -1,12 +1,23 @@
-"""Конфигурация бота: читается из переменных окружения (.env)."""
+"""Конфигурация бота: читается из переменных окружения (.env).
+
+Часть параметров-фильтров можно менять на лету командой /set в Telegram —
+такие изменения сохраняются в файл OVERRIDES_FILE и переживают перезапуск
+(накладываются поверх значений из .env)."""
 from __future__ import annotations
 
+import json
+import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+OVERRIDES_FILE = Path(os.getenv("OVERRIDES_FILE", "runtime_settings.json"))
 
 
 def _get_float(name: str, default: float) -> float:
@@ -21,6 +32,21 @@ def _get_float(name: str, default: float) -> float:
 
 def _get_int(name: str, default: int) -> int:
     return int(_get_float(name, default))
+
+
+# Параметры, которые можно менять из чата: имя -> (тип, минимум, максимум, подпись)
+SETTABLE: dict[str, tuple[type, float, float | None, str]] = {
+    "min_profit_percent": (float, 0, None, "мин. прибыль, %"),
+    "min_profit_abs": (float, 0, None, "мин. прибыль, $"),
+    "min_buy_price": (float, 0, None, "мин. цена покупки, $"),
+    "max_buy_price": (float, 0, None, "макс. цена покупки, $ (0 = ∞)"),
+    "min_market_volume": (float, 0, None, "мин. объём market.csgo"),
+    "min_csfloat_quantity": (float, 0, None, "мин. листингов CSFloat"),
+    "float_edge_margin": (float, 0, 0.5, "отступ флоата от границы износа"),
+    "scan_interval": (int, 10, 86400, "интервал авто-скана, сек"),
+    "csfloat_fee": (float, 0, 1, "комиссия CSFloat (доля)"),
+    "market_csgo_fee": (float, 0, 1, "комиссия market.csgo (доля)"),
+}
 
 
 @dataclass
@@ -53,9 +79,12 @@ class Config:
     csfloat_fee: float
     market_csgo_fee: float
 
+    # Переопределения, заданные из чата (в память + файл)
+    overrides: dict[str, float] = field(default_factory=dict)
+
     @classmethod
     def from_env(cls) -> "Config":
-        return cls(
+        cfg = cls(
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
             csfloat_api_key=os.getenv("CSFLOAT_API_KEY", "").strip(),
@@ -73,6 +102,8 @@ class Config:
             csfloat_fee=_get_float("CSFLOAT_FEE", 0.02),
             market_csgo_fee=_get_float("MARKET_CSGO_FEE", 0.05),
         )
+        cfg._load_overrides()
+        return cfg
 
     def validate(self) -> list[str]:
         """Возвращает список проблем конфигурации (пустой = всё ок)."""
@@ -85,3 +116,51 @@ class Config:
                 "(команды в личке будут работать после /start)."
             )
         return problems
+
+    # ---- Runtime-настройки из чата ----
+    def set_param(self, key: str, raw_value: str) -> tuple[bool, str]:
+        """Меняет параметр на лету. Возвращает (успех, сообщение для пользователя)."""
+        key = key.strip().lower()
+        if key not in SETTABLE:
+            return False, "Неизвестный параметр. Список: /set без аргументов."
+        typ, lo, hi, label = SETTABLE[key]
+        try:
+            value = typ(float(raw_value.replace(",", ".")))
+        except (TypeError, ValueError):
+            return False, f"«{raw_value}» — не число."
+        if value < lo:
+            return False, f"{key} не может быть меньше {lo}."
+        if hi is not None and value > hi:
+            return False, f"{key} не может быть больше {hi}."
+        setattr(self, key, value)
+        self.overrides[key] = value
+        self._save_overrides()
+        return True, f"✅ {key} ({label}) = {value}"
+
+    def settable_help(self) -> str:
+        lines = ["Меняемые параметры (<code>/set имя значение</code>):"]
+        for name, (_typ, lo, hi, label) in SETTABLE.items():
+            cur = getattr(self, name)
+            rng = f"≥{lo}" + (f", ≤{hi}" if hi is not None else "")
+            lines.append(f"• <code>{name}</code> = {cur} — {label} ({rng})")
+        return "\n".join(lines)
+
+    def _load_overrides(self) -> None:
+        try:
+            if OVERRIDES_FILE.exists():
+                data = json.loads(OVERRIDES_FILE.read_text())
+                for key, value in data.items():
+                    if key in SETTABLE:
+                        typ = SETTABLE[key][0]
+                        setattr(self, key, typ(value))
+                        self.overrides[key] = typ(value)
+                if self.overrides:
+                    logger.info("Загружены runtime-настройки: %s", self.overrides)
+        except (OSError, ValueError, TypeError) as exc:
+            logger.warning("Не удалось прочитать %s: %s", OVERRIDES_FILE, exc)
+
+    def _save_overrides(self) -> None:
+        try:
+            OVERRIDES_FILE.write_text(json.dumps(self.overrides, ensure_ascii=False))
+        except OSError as exc:
+            logger.warning("Не удалось записать %s: %s", OVERRIDES_FILE, exc)
