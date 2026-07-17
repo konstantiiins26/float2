@@ -21,6 +21,7 @@ from analysis.liquidity import (
     is_liquid,
     liquidity_score,
 )
+from analysis.categories import is_wanted
 from analysis.stability import StabilityReport
 from config import Config
 from sources.csfloat import CsFloatListing
@@ -90,7 +91,7 @@ def evaluate(
     # Исключаем нежелательные категории
     if cfg.exclude_souvenir and listing.is_souvenir:
         return None
-    if cfg.exclude_stickers and listing.is_sticker:
+    if cfg.weapons_only and not is_wanted(listing.market_hash_name):
         return None
 
     # Ценовой диапазон покупки

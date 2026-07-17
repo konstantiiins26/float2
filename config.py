@@ -93,6 +93,7 @@ class Config:
     # Что исключать из выдачи
     exclude_stickers: bool = True    # стикеры (Sticker | ...)
     exclude_souvenir: bool = True    # сувенирное оружие
+    weapons_only: bool = True        # только оружие/ножи/перчатки/агенты
 
     # Проверять актуальность лота (куплен/нет) перед отправкой оффера
     check_live_status: bool = True
@@ -134,6 +135,7 @@ class Config:
         cfg.usd_rate = _get_float("USD_RATE", 1.0 if cfg.currency == "USD" else 0.92)
         cfg.exclude_stickers = _get_bool("EXCLUDE_STICKERS", True)
         cfg.exclude_souvenir = _get_bool("EXCLUDE_SOUVENIR", True)
+        cfg.weapons_only = _get_bool("WEAPONS_ONLY", True)
         cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
         cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
         cfg.csmoney_enabled = _get_bool("CSMONEY_ENABLED", False)
