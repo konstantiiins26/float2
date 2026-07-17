@@ -128,8 +128,9 @@ def _menu_sources_kb(cfg: Config) -> InlineKeyboardMarkup:
 
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(f"Skinport: {s(cfg.skinport_enabled)}", callback_data="toggle:skinport")],
-            [InlineKeyboardButton(f"CS.MONEY: {s(cfg.csmoney_enabled)}", callback_data="toggle:csmoney")],
+            [InlineKeyboardButton(f"🟦 CSFloat: {s(cfg.csfloat_enabled)}", callback_data="toggle:csfloat")],
+            [InlineKeyboardButton(f"🟧 Skinport: {s(cfg.skinport_enabled)}", callback_data="toggle:skinport")],
+            [InlineKeyboardButton(f"🟥 CS.MONEY: {s(cfg.csmoney_enabled)}", callback_data="toggle:csmoney")],
             [InlineKeyboardButton(f"Только оружие/ножи/агенты: {s(cfg.weapons_only)}", callback_data="toggle:weapons")],
             [InlineKeyboardButton(f"Проверка «куплен?»: {s(cfg.check_live_status)}", callback_data="toggle:status")],
             [InlineKeyboardButton(f"Анализ стабильности: {s(cfg.analyze_stability)}", callback_data="toggle:stability")],
@@ -265,8 +266,9 @@ class ArbitrageBot:
             f"Авто-скан: {auto}, каждые {self.cfg.scan_interval} сек\n"
             f"Прайс-лист market.csgo: {market_size} предметов\n"
             f"Чат для оповещений: {chat}\n"
-            f"Skinport: {'вкл' if self.cfg.skinport_enabled else 'выкл'} | "
-            f"CS.MONEY: {'вкл' if self.cfg.csmoney_enabled else 'выкл'}\n"
+            f"Покупка: CSFloat {'вкл' if self.cfg.csfloat_enabled else 'выкл'} | "
+            f"Skinport {'вкл' if self.cfg.skinport_enabled else 'выкл'} | "
+            f"CS.MONEY {'вкл' if self.cfg.csmoney_enabled else 'выкл'}\n"
             f"Только оружие/ножи/перчатки/агенты: {'да' if self.cfg.weapons_only else 'нет'}"
         )
 
@@ -440,6 +442,7 @@ class ArbitrageBot:
         if data.startswith("toggle:"):
             what = data.split(":", 1)[1]
             attr = {
+                "csfloat": "csfloat_enabled",
                 "skinport": "skinport_enabled",
                 "csmoney": "csmoney_enabled",
                 "weapons": "weapons_only",

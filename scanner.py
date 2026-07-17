@@ -63,14 +63,16 @@ class Scanner:
         self.last_error = None
         await self.market.ensure_loaded()
 
-        listings = await self.csfloat.get_listings(
-            limit=self.cfg.scan_limit,
-            sort_by=self.cfg.scan_sort_by,
-            min_price=self.cfg.min_buy_price or None,
-            max_price=self.cfg.max_buy_price or None,
-        )
-        if not listings:
-            self.last_error = "CSFloat не вернул листингов (проверь сеть/ключ)."
+        listings: list = []
+        if self.cfg.csfloat_enabled:
+            listings = await self.csfloat.get_listings(
+                limit=self.cfg.scan_limit,
+                sort_by=self.cfg.scan_sort_by,
+                min_price=self.cfg.min_buy_price or None,
+                max_price=self.cfg.max_buy_price or None,
+            )
+            if not listings:
+                self.last_error = "CSFloat не вернул листингов (проверь сеть/ключ)."
 
         # Добавляем предметы со Skinport (публичный API)
         if self.cfg.skinport_enabled:
