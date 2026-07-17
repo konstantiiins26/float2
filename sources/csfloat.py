@@ -49,7 +49,11 @@ class CsFloatListing:
 
     @property
     def source_name(self) -> str:
-        return {"csfloat": "CSFloat", "csmoney": "CS.MONEY"}.get(self.source, self.source)
+        return {
+            "csfloat": "CSFloat",
+            "csmoney": "CS.MONEY",
+            "skinport": "Skinport",
+        }.get(self.source, self.source)
 
     @property
     def is_sticker(self) -> bool:

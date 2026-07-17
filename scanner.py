@@ -15,6 +15,7 @@ from config import Config
 from sources.csfloat import CsFloatClient
 from sources.csmoney import CsMoneyClient
 from sources.market_csgo import MarketCsgoClient
+from sources.skinport import SkinportClient
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,9 @@ class Scanner:
             session, cfg.market_csgo_api_key, currency=cfg.currency
         )
         self.csmoney = CsMoneyClient(session, usd_rate=cfg.usd_rate)
+        self.skinport = SkinportClient(
+            session, currency=cfg.currency, api_key=cfg.skinport_api_key
+        )
         self._seen: set[str] = self._load_seen()
         self.last_error: str | None = None
 
@@ -64,6 +68,12 @@ class Scanner:
         )
         if not listings:
             self.last_error = "CSFloat не вернул листингов (проверь сеть/ключ)."
+
+        # Добавляем предметы со Skinport (публичный API)
+        if self.cfg.skinport_enabled:
+            skinport_listings = await self.skinport.get_listings()
+            if skinport_listings:
+                listings = listings + skinport_listings
 
         # Экспериментально: добавляем предметы с CS.MONEY
         if self.cfg.csmoney_enabled:

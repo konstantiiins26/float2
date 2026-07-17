@@ -227,6 +227,7 @@ class ArbitrageBot:
             f"Чат для оповещений: {chat}\n"
             f"CSFloat ключ: {'есть' if self.cfg.csfloat_api_key else 'нет'}\n"
             f"market.csgo ключ: {'есть' if self.cfg.market_csgo_api_key else 'нет'}\n"
+            f"Skinport: {'вкл' if self.cfg.skinport_enabled else 'выкл'}\n"
             f"CS.MONEY: {'вкл' if self.cfg.csmoney_enabled else 'выкл'}\n"
             f"Только оружие/ножи/перчатки/агенты: {'да' if self.cfg.weapons_only else 'нет'}"
         )

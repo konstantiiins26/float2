@@ -104,6 +104,10 @@ class Config:
     # Экспериментально: искать предметы ещё и на CS.MONEY (может блокироваться)
     csmoney_enabled: bool = False
 
+    # Искать предметы для покупки на Skinport (публичный API, ключ не нужен)
+    skinport_enabled: bool = True
+    skinport_api_key: str = ""
+
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
 
@@ -139,6 +143,8 @@ class Config:
         cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
         cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
         cfg.csmoney_enabled = _get_bool("CSMONEY_ENABLED", False)
+        cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
+        cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()
         cfg._load_overrides()
         return cfg
 
