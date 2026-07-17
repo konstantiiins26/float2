@@ -67,9 +67,13 @@ class SkinportClient:
         self._cache_ttl = cache_ttl
         self._cache: list[CsFloatListing] = []
         self._cache_ts: float = 0.0
+        self._cooldown_until: float = 0.0  # после ошибки не долбим каждый скан
 
     async def get_listings(self) -> list[CsFloatListing]:
-        if self._cache and (time.time() - self._cache_ts) < self._cache_ttl:
+        now = time.time()
+        if self._cache and (now - self._cache_ts) < self._cache_ttl:
+            return self._cache
+        if now < self._cooldown_until:
             return self._cache
 
         params = {"app_id": APP_ID_CS2, "currency": self._currency, "tradable": 0}
@@ -81,10 +85,12 @@ class SkinportClient:
             ) as resp:
                 if resp.status != 200:
                     logger.warning("Skinport вернул %s", resp.status)
+                    self._cooldown_until = time.time() + 120
                     return self._cache
                 payload = await resp.json(content_type=None)
         except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
             logger.warning("Ошибка запроса к Skinport: %s", exc)
+            self._cooldown_until = time.time() + 120  # пауза перед повтором
             return self._cache
 
         if not isinstance(payload, list):
