@@ -100,6 +100,9 @@ class Config:
     # Анализировать стабильность цены по истории продаж
     analyze_stability: bool = True
 
+    # Экспериментально: искать предметы ещё и на CS.MONEY (может блокироваться)
+    csmoney_enabled: bool = False
+
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
 
@@ -133,6 +136,7 @@ class Config:
         cfg.exclude_souvenir = _get_bool("EXCLUDE_SOUVENIR", True)
         cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
         cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
+        cfg.csmoney_enabled = _get_bool("CSMONEY_ENABLED", False)
         cfg._load_overrides()
         return cfg
 

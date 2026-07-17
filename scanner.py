@@ -13,6 +13,7 @@ from analysis.arbitrage import Opportunity, evaluate
 from analysis.stability import analyze as analyze_stability
 from config import Config
 from sources.csfloat import CsFloatClient
+from sources.csmoney import CsMoneyClient
 from sources.market_csgo import MarketCsgoClient
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class Scanner:
         self.market = MarketCsgoClient(
             session, cfg.market_csgo_api_key, currency=cfg.currency
         )
+        self.csmoney = CsMoneyClient(session, usd_rate=cfg.usd_rate)
         self._seen: set[str] = self._load_seen()
         self.last_error: str | None = None
 
@@ -62,6 +64,14 @@ class Scanner:
         )
         if not listings:
             self.last_error = "CSFloat не вернул листингов (проверь сеть/ключ)."
+
+        # Экспериментально: добавляем предметы с CS.MONEY
+        if self.cfg.csmoney_enabled:
+            csmoney_listings = await self.csmoney.get_listings(limit=self.cfg.scan_limit)
+            if csmoney_listings:
+                listings = listings + csmoney_listings
+            else:
+                logger.info("CS.MONEY не вернул предметов (блокировка/формат).")
 
         opportunities: list[Opportunity] = []
         for listing in listings:

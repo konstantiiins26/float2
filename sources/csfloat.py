@@ -40,10 +40,16 @@ class CsFloatListing:
     created_at: str = ""      # когда листинг выставлен (ISO8601)
     watchers: int = 0         # сколько человек «наблюдают» за лотом
     item_type: str = ""       # тип предмета (skin, sticker, ...) если есть
+    source: str = "csfloat"   # площадка покупки: csfloat | csmoney
+    page_url: str = ""        # прямая ссылка на лот (если не csfloat)
 
     @property
     def url(self) -> str:
-        return f"https://csfloat.com/item/{self.listing_id}"
+        return self.page_url or f"https://csfloat.com/item/{self.listing_id}"
+
+    @property
+    def source_name(self) -> str:
+        return {"csfloat": "CSFloat", "csmoney": "CS.MONEY"}.get(self.source, self.source)
 
     @property
     def is_sticker(self) -> bool:

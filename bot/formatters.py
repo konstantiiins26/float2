@@ -77,7 +77,7 @@ def format_opportunity(o: Opportunity) -> str:
         f"🎯 <b>{prefix}{name}</b>",
         f"Износ: {escape(l.wear_name or '—')} | Float: <code>{float_str}</code>",
         "",
-        f"🛒 Купить на CSFloat: <b>{s}{o.buy_price:.2f}</b>",
+        f"🛒 Купить на {escape(l.source_name)}: <b>{s}{o.buy_price:.2f}</b>",
         "",
         "💰 <b>Куда продать (профит с учётом комиссий):</b>",
     ]
@@ -109,7 +109,8 @@ def format_opportunity(o: Opportunity) -> str:
     ]
     if o.market:
         lines.append(f"   market.csgo: объём {o.market.volume} лот(ов)")
-    lines.append(f"   CSFloat: {l.reference_quantity} листингов")
+    if l.source == "csfloat":
+        lines.append(f"   CSFloat: {l.reference_quantity} листингов")
     lines.append(f"📏 Отступ флоата от границы износа: {o.float_edge_distance}")
 
     # Актуальность оффера: когда выставлен + сколько наблюдают
@@ -132,7 +133,7 @@ def format_opportunity(o: Opportunity) -> str:
 
     lines += [
         "",
-        f"🔗 <a href=\"{l.url}\">Открыть на CSFloat</a> · "
+        f"🔗 <a href=\"{l.url}\">Открыть на {escape(l.source_name)}</a> · "
         f"🛒 <a href=\"{market_url(l.market_hash_name)}\">Найти на market.csgo</a>",
         f"⭐ Лучший путь: <b>{escape(best.venue)}</b> "
         f"({best.profit_abs:+.2f}{s} / {best.profit_pct:+.1f}%)",

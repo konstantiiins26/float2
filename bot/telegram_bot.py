@@ -96,7 +96,7 @@ class ArbitrageBot:
             for opp in fresh:
                 # Перед отправкой проверяем, не купили ли лот. Если куплен —
                 # не шлём (мёртвый оффер). Если проверить не удалось — шлём.
-                if self.cfg.check_live_status:
+                if self.cfg.check_live_status and opp.listing.source == "csfloat":
                     opp.live_status = await self._scanner.csfloat.get_listing_status(
                         opp.listing.listing_id
                     )
@@ -135,7 +135,7 @@ class ArbitrageBot:
         )
         # Детально топ-5 (со свежей проверкой актуальности)
         for opp in opportunities[:5]:
-            if self.cfg.check_live_status:
+            if self.cfg.check_live_status and opp.listing.source == "csfloat":
                 opp.live_status = await self._scanner.csfloat.get_listing_status(
                     opp.listing.listing_id
                 )

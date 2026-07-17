@@ -103,14 +103,19 @@ def evaluate(
     if not is_float_stable(listing.float_value, cfg.float_edge_margin):
         return None
 
-    # Ликвидность (объём market.csgo + кол-во листингов CSFloat)
+    # Ликвидность. Для CSFloat — объём market.csgo + кол-во листингов CSFloat.
+    # Для других площадок (CS.MONEY) листингов CSFloat нет, смотрим только объём.
     market_volume = market.volume if market else 0
-    if not is_liquid(
-        market_volume,
-        listing.reference_quantity,
-        cfg.min_market_volume,
-        cfg.min_csfloat_quantity,
-    ):
+    if listing.source == "csfloat":
+        liquid = is_liquid(
+            market_volume,
+            listing.reference_quantity,
+            cfg.min_market_volume,
+            cfg.min_csfloat_quantity,
+        )
+    else:
+        liquid = market_volume >= cfg.min_market_volume
+    if not liquid:
         return None
 
     # Считаем оба пути перепродажи
