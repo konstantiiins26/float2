@@ -60,10 +60,12 @@ class SkinportClient:
         currency: str = "EUR",
         api_key: str = "",
         cache_ttl: int = 600,
+        insecure: bool = False,
     ) -> None:
         self._session = session
         self._currency = currency if currency in SUPPORTED else "EUR"
         self._api_key = api_key  # для чтения цен не требуется; на будущее
+        self._insecure = insecure  # отключить проверку SSL (крайний случай)
         self._cache_ttl = cache_ttl
         self._cache: list[CsFloatListing] = []
         self._cache_ts: float = 0.0
@@ -78,10 +80,14 @@ class SkinportClient:
 
         params = {"app_id": APP_ID_CS2, "currency": self._currency, "tradable": 0}
         try:
+            request_kwargs: dict[str, Any] = {}
+            if self._insecure:
+                request_kwargs["ssl"] = False
             async with self._session.get(
                 ITEMS_URL,
                 params=params,
                 timeout=aiohttp.ClientTimeout(total=30),
+                **request_kwargs,
             ) as resp:
                 if resp.status != 200:
                     logger.warning("Skinport вернул %s", resp.status)

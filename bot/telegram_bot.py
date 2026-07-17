@@ -125,9 +125,17 @@ class ArbitrageBot:
 
     # ---- Жизненный цикл ----
     async def _on_startup(self, app: Application) -> None:
-        import aiohttp
+        import ssl
 
-        self._session = aiohttp.ClientSession()
+        import aiohttp
+        import certifi
+
+        # Используем свежий пакет корневых сертификатов certifi для всех
+        # HTTPS-запросов — иначе на Windows берётся системное хранилище, где
+        # может быть просроченный корень (ошибка "certificate has expired").
+        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+        connector = aiohttp.TCPConnector(ssl=ssl_ctx)
+        self._session = aiohttp.ClientSession(connector=connector)
         self._scanner = Scanner(self.cfg, self._session)
         self._scan_task = asyncio.create_task(self._auto_scan_loop())
         logger.info("Бот запущен, авто-скан каждые %d сек.", self.cfg.scan_interval)

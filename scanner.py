@@ -32,7 +32,10 @@ class Scanner:
         )
         self.csmoney = CsMoneyClient(session, usd_rate=cfg.usd_rate)
         self.skinport = SkinportClient(
-            session, currency=cfg.currency, api_key=cfg.skinport_api_key
+            session,
+            currency=cfg.currency,
+            api_key=cfg.skinport_api_key,
+            insecure=cfg.skinport_insecure,
         )
         self._seen: set[str] = self._load_seen()
         self.last_error: str | None = None

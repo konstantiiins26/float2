@@ -107,6 +107,9 @@ class Config:
     # Искать предметы для покупки на Skinport (публичный API, ключ не нужен)
     skinport_enabled: bool = True
     skinport_api_key: str = ""
+    # Отключить проверку SSL для Skinport (крайний случай — если у них просрочен
+    # сертификат). Небезопасно (риск подмены цен), включай только осознанно.
+    skinport_insecure: bool = False
 
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
@@ -145,6 +148,7 @@ class Config:
         cfg.csmoney_enabled = _get_bool("CSMONEY_ENABLED", False)
         cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
         cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()
+        cfg.skinport_insecure = _get_bool("SKINPORT_INSECURE", False)
         cfg._load_overrides()
         return cfg
 
