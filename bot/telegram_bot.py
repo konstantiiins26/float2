@@ -1,4 +1,4 @@
-"""Telegram-бот: команды, кнопки управления и фоновый авто-скан с пушами."""
+"""Telegram-бот: команды, меню-кнопки и фоновый авто-скан с пушами."""
 from __future__ import annotations
 
 import asyncio
@@ -31,12 +31,11 @@ from sources.market_csgo import market_url
 
 logger = logging.getLogger(__name__)
 
-# Подписи кнопок нижней клавиатуры
+# Подписи нижней клавиатуры
 BTN_SCAN = "🔎 Сканировать"
+BTN_MENU = "📋 Меню"
 BTN_STATUS = "📟 Статус"
-BTN_SETTINGS = "⚙️ Фильтры"
-BTN_PAUSE = "⏯️ Авто-скан вкл/выкл"
-BTN_PRESETS = "🎚️ Пресеты"
+BTN_PAUSE = "⏯️ Авто-скан"
 
 # Готовые наборы фильтров
 PRESETS: dict[str, dict[str, float]] = {
@@ -45,38 +44,96 @@ PRESETS: dict[str, dict[str, float]] = {
     "test": {"min_market_volume": 3, "min_csfloat_quantity": 2, "min_profit_percent": 5},
 }
 
+# Фильтры, которые крутятся кнопками ➖/➕: (ключ, подпись, шаг)
+FILTER_ADJUST = [
+    ("min_profit_percent", "Прибыль %", 1),
+    ("min_profit_abs", "Прибыль €", 0.5),
+    ("min_market_volume", "Объём market.csgo", 5),
+    ("min_csfloat_quantity", "Лоты CSFloat", 5),
+    ("min_buy_price", "Мин. цена €", 1),
+    ("max_buy_price", "Макс. цена € (0=∞)", 5),
+]
+
 HELP_TEXT = (
     "🤖 <b>CSFloat арбитраж-бот</b>\n\n"
-    "Ищу оружие, ножи, перчатки и агентов, которые можно дёшево купить и "
-    "продать дороже на market.csgo, с учётом комиссий, ликвидности и "
-    "стабильности цены.\n\n"
-    "<b>Управляй кнопками снизу</b> 👇 или командами:\n"
-    "/scan — лучшие сделки сейчас\n"
-    "/status — состояние бота\n"
-    "/settings — текущие фильтры\n"
-    "/set имя значение — изменить фильтр (напр. <code>/set min_profit_percent 15</code>)\n"
-    "/pause — пауза/возобновление авто-скана\n\n"
-    "Новые сделки приходят сами. Под каждой — кнопки «Купить» и «market.csgo»."
+    "Ищу оружие, ножи, перчатки и агентов, которые можно дёшево купить "
+    "(CSFloat / Skinport) и продать дороже на market.csgo — с учётом комиссий, "
+    "ликвидности и стабильности цены.\n\n"
+    "Управляй кнопками снизу 👇 или командой /menu.\n"
+    "Под каждой сделкой — кнопки «Купить», «market.csgo», «Скрыть»."
 )
 
 
+# ---- Клавиатуры ----
 def _main_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
-            [KeyboardButton(BTN_SCAN), KeyboardButton(BTN_STATUS)],
-            [KeyboardButton(BTN_SETTINGS), KeyboardButton(BTN_PAUSE)],
-            [KeyboardButton(BTN_PRESETS)],
+            [KeyboardButton(BTN_SCAN), KeyboardButton(BTN_MENU)],
+            [KeyboardButton(BTN_STATUS), KeyboardButton(BTN_PAUSE)],
         ],
         resize_keyboard=True,
     )
 
 
-def _presets_keyboard() -> InlineKeyboardMarkup:
+def _menu_main_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔎 Сканировать", callback_data="act:scan")],
+            [
+                InlineKeyboardButton("📟 Статус", callback_data="act:status"),
+                InlineKeyboardButton("⚙️ Фильтры", callback_data="act:settings"),
+            ],
+            [
+                InlineKeyboardButton("🎚️ Пресеты", callback_data="menu:presets"),
+                InlineKeyboardButton("🎛️ Настроить", callback_data="menu:filters"),
+            ],
+            [
+                InlineKeyboardButton("🔌 Источники", callback_data="menu:sources"),
+                InlineKeyboardButton("⏯️ Авто-скан", callback_data="act:pause"),
+            ],
+        ]
+    )
+
+
+def _menu_presets_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("🟢 Ликвид (безопасно)", callback_data="preset:liquid")],
             [InlineKeyboardButton("🟡 Риск (больше сделок)", callback_data="preset:risk")],
             [InlineKeyboardButton("🔵 Тест (максимум)", callback_data="preset:test")],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="menu:main")],
+        ]
+    )
+
+
+def _menu_filters_kb(cfg: Config) -> InlineKeyboardMarkup:
+    rows = []
+    for key, label, step in FILTER_ADJUST:
+        val = getattr(cfg, key)
+        val_str = f"{val:g}"
+        rows.append(
+            [
+                InlineKeyboardButton("➖", callback_data=f"set:{key}:-{step}"),
+                InlineKeyboardButton(f"{label}: {val_str}", callback_data="noop"),
+                InlineKeyboardButton("➕", callback_data=f"set:{key}:{step}"),
+            ]
+        )
+    rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="menu:main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _menu_sources_kb(cfg: Config) -> InlineKeyboardMarkup:
+    def s(b: bool) -> str:
+        return "🟢 вкл" if b else "🔴 выкл"
+
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(f"Skinport: {s(cfg.skinport_enabled)}", callback_data="toggle:skinport")],
+            [InlineKeyboardButton(f"CS.MONEY: {s(cfg.csmoney_enabled)}", callback_data="toggle:csmoney")],
+            [InlineKeyboardButton(f"Только оружие/ножи/агенты: {s(cfg.weapons_only)}", callback_data="toggle:weapons")],
+            [InlineKeyboardButton(f"Проверка «куплен?»: {s(cfg.check_live_status)}", callback_data="toggle:status")],
+            [InlineKeyboardButton(f"Анализ стабильности: {s(cfg.analyze_stability)}", callback_data="toggle:stability")],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="menu:main")],
         ]
     )
 
@@ -94,11 +151,19 @@ def _offer_keyboard(opp: Opportunity) -> InlineKeyboardMarkup:
     )
 
 
+MENU_TEXTS = {
+    "main": "📋 <b>Меню</b>\nВыбери действие:",
+    "presets": "🎚️ <b>Пресеты фильтров</b>\nОдин тап — готовый набор настроек:",
+    "filters": "🎛️ <b>Настройка фильтров</b>\nЖми ➖/➕, чтобы менять значения:",
+    "sources": "🔌 <b>Источники и функции</b>\nТап по строке — включить/выключить:",
+}
+
+
 class ArbitrageBot:
     def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
         self._scanner: Scanner | None = None
-        self._session = None  # aiohttp.ClientSession, создаётся в post_init
+        self._session = None
         self._scan_task: asyncio.Task | None = None
         self._paused = False
         self.app: Application = (
@@ -113,6 +178,7 @@ class ArbitrageBot:
     def _register_handlers(self) -> None:
         self.app.add_handler(CommandHandler("start", self.cmd_start))
         self.app.add_handler(CommandHandler("help", self.cmd_start))
+        self.app.add_handler(CommandHandler("menu", self.cmd_menu))
         self.app.add_handler(CommandHandler("scan", self.cmd_scan))
         self.app.add_handler(CommandHandler("status", self.cmd_status))
         self.app.add_handler(CommandHandler("settings", self.cmd_settings))
@@ -130,9 +196,6 @@ class ArbitrageBot:
         import aiohttp
         import certifi
 
-        # Используем свежий пакет корневых сертификатов certifi для всех
-        # HTTPS-запросов — иначе на Windows берётся системное хранилище, где
-        # может быть просроченный корень (ошибка "certificate has expired").
         ssl_ctx = ssl.create_default_context(cafile=certifi.where())
         connector = aiohttp.TCPConnector(ssl=ssl_ctx)
         self._session = aiohttp.ClientSession(connector=connector)
@@ -148,8 +211,6 @@ class ArbitrageBot:
 
     # ---- Фоновый цикл ----
     async def _auto_scan_loop(self) -> None:
-        # Первый прогон помечает уже висящие сделки как «виденные», чтобы при
-        # старте не спамить всей выдачей. Пуши идут только по новым листингам.
         assert self._scanner is not None
         try:
             await self._scanner.scan_new()
@@ -166,7 +227,6 @@ class ArbitrageBot:
                 logger.exception("Ошибка авто-скана: %s", exc)
                 continue
             for opp in fresh:
-                # Перед отправкой проверяем, не купили ли лот (только CSFloat).
                 if self.cfg.check_live_status and opp.listing.source == "csfloat":
                     opp.live_status = await self._scanner.csfloat.get_listing_status(
                         opp.listing.listing_id
@@ -179,7 +239,7 @@ class ArbitrageBot:
                     format_opportunity(opp),
                     reply_markup=_offer_keyboard(opp),
                 )
-                await asyncio.sleep(0.5)  # мягкий рейт-лимит Telegram
+                await asyncio.sleep(0.5)
 
     async def _send(self, chat_id, text, reply_markup=None) -> None:
         try:
@@ -193,21 +253,48 @@ class ArbitrageBot:
         except TelegramError as exc:
             logger.error("Не удалось отправить сообщение в %s: %s", chat_id, exc)
 
-    # ---- Команды ----
-    async def cmd_start(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_html(
-            HELP_TEXT, disable_web_page_preview=True, reply_markup=_main_keyboard()
+    # ---- Тексты для команд/кнопок ----
+    async def _status_text(self) -> str:
+        market_size = 0
+        if self._scanner:
+            market_size = await self._scanner.market.ensure_loaded()
+        chat = "задан" if self.cfg.telegram_chat_id else "НЕ задан"
+        auto = "⏸️ на паузе" if self._paused else "▶️ работает"
+        return (
+            "📟 <b>Статус</b>\n"
+            f"Авто-скан: {auto}, каждые {self.cfg.scan_interval} сек\n"
+            f"Прайс-лист market.csgo: {market_size} предметов\n"
+            f"Чат для оповещений: {chat}\n"
+            f"Skinport: {'вкл' if self.cfg.skinport_enabled else 'выкл'} | "
+            f"CS.MONEY: {'вкл' if self.cfg.csmoney_enabled else 'выкл'}\n"
+            f"Только оружие/ножи/перчатки/агенты: {'да' if self.cfg.weapons_only else 'нет'}"
         )
 
-    async def cmd_scan(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    def _settings_text(self) -> str:
+        c = self.cfg
+        cur = c.currency_symbol
+        return (
+            "⚙️ <b>Фильтры</b>\n"
+            f"Мин. прибыль: {c.min_profit_percent}% и {cur}{c.min_profit_abs}\n"
+            f"Цена покупки: {cur}{c.min_buy_price} – "
+            f"{(cur + str(c.max_buy_price)) if c.max_buy_price else '∞'}\n"
+            f"Мин. объём market.csgo: {c.min_market_volume}\n"
+            f"Мин. листингов CSFloat: {c.min_csfloat_quantity}\n"
+            f"Отступ флоата от границы: {c.float_edge_margin}\n"
+            f"Комиссии: CSFloat {c.csfloat_fee*100:.0f}%, market.csgo {c.market_csgo_fee*100:.0f}%\n"
+            f"Валюта: {c.currency}\n\n"
+            "Меняй кнопками в /menu → 🎛️ Настроить, пресетами, или /set имя значение."
+        )
+
+    async def _scan_to(self, message) -> None:
         if not self._scanner:
-            await update.message.reply_text("Сканер ещё инициализируется, подожди пару секунд.")
+            await message.reply_text("Сканер ещё инициализируется, подожди пару секунд.")
             return
-        await update.message.reply_text("🔎 Сканирую…")
+        await message.reply_text("🔎 Сканирую…")
         opportunities = await self._scanner.scan()
         if self._scanner.last_error:
-            await update.message.reply_text(f"⚠️ {self._scanner.last_error}")
-        await update.message.reply_html(
+            await message.reply_text(f"⚠️ {self._scanner.last_error}")
+        await message.reply_html(
             format_summary(opportunities), disable_web_page_preview=True
         )
         for opp in opportunities[:5]:
@@ -216,49 +303,30 @@ class ArbitrageBot:
                     opp.listing.listing_id
                 )
             await self._scanner.enrich_stability(opp)
-            await update.message.reply_html(
+            await message.reply_html(
                 format_opportunity(opp),
                 disable_web_page_preview=True,
                 reply_markup=_offer_keyboard(opp),
             )
 
-    async def cmd_status(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        market_size = 0
-        if self._scanner:
-            market_size = await self._scanner.market.ensure_loaded()
-        chat = "задан" if self.cfg.telegram_chat_id else "НЕ задан (авто-пуши выключены)"
-        auto = "⏸️ на паузе" if self._paused else "▶️ работает"
-        text = (
-            "📟 <b>Статус</b>\n"
-            f"Авто-скан: {auto}, каждые {self.cfg.scan_interval} сек\n"
-            f"Прайс-лист market.csgo: {market_size} предметов в кэше\n"
-            f"Чат для оповещений: {chat}\n"
-            f"CSFloat ключ: {'есть' if self.cfg.csfloat_api_key else 'нет'}\n"
-            f"market.csgo ключ: {'есть' if self.cfg.market_csgo_api_key else 'нет'}\n"
-            f"Skinport: {'вкл' if self.cfg.skinport_enabled else 'выкл'}\n"
-            f"CS.MONEY: {'вкл' if self.cfg.csmoney_enabled else 'выкл'}\n"
-            f"Только оружие/ножи/перчатки/агенты: {'да' if self.cfg.weapons_only else 'нет'}"
+    # ---- Команды ----
+    async def cmd_start(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.message.reply_html(
+            HELP_TEXT, disable_web_page_preview=True, reply_markup=_main_keyboard()
         )
-        await update.message.reply_html(text)
+        await update.message.reply_html(MENU_TEXTS["main"], reply_markup=_menu_main_kb())
+
+    async def cmd_menu(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.message.reply_html(MENU_TEXTS["main"], reply_markup=_menu_main_kb())
+
+    async def cmd_scan(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        await self._scan_to(update.message)
+
+    async def cmd_status(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.message.reply_html(await self._status_text())
 
     async def cmd_settings(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        c = self.cfg
-        s = c.currency_symbol
-        text = (
-            "⚙️ <b>Фильтры</b>\n"
-            f"Мин. прибыль: {c.min_profit_percent}% и {s}{c.min_profit_abs}\n"
-            f"Цена покупки: {s}{c.min_buy_price} – "
-            f"{(s + str(c.max_buy_price)) if c.max_buy_price else '∞'}\n"
-            f"Мин. объём market.csgo: {c.min_market_volume}\n"
-            f"Мин. листингов CSFloat: {c.min_csfloat_quantity}\n"
-            f"Отступ флоата от границы: {c.float_edge_margin}\n"
-            f"Комиссии: CSFloat {c.csfloat_fee*100:.0f}%, "
-            f"market.csgo {c.market_csgo_fee*100:.0f}%\n"
-            f"Листингов за проход: {c.scan_limit}, сортировка: {c.scan_sort_by}\n\n"
-            "Меняй фильтры: /set имя значение (список — просто /set), "
-            "или жми «🎚️ Пресеты»."
-        )
-        await update.message.reply_html(text)
+        await update.message.reply_html(self._settings_text())
 
     async def cmd_set(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         args = ctx.args or []
@@ -268,7 +336,7 @@ class ArbitrageBot:
                 + "\n\nПример: <code>/set min_profit_percent 15</code>"
             )
             return
-        ok, msg = self.cfg.set_param(args[0], args[1])
+        _ok, msg = self.cfg.set_param(args[0], args[1])
         await update.message.reply_text(msg)
 
     async def cmd_pause(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -276,26 +344,41 @@ class ArbitrageBot:
         state = "⏸️ Авто-скан на паузе" if self._paused else "▶️ Авто-скан возобновлён"
         await update.message.reply_text(state)
 
-    # ---- Кнопки ----
+    # ---- Нижняя клавиатура (текстовые кнопки) ----
     async def on_text(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         text = (update.message.text or "").strip()
         if text == BTN_SCAN:
-            await self.cmd_scan(update, ctx)
+            await self._scan_to(update.message)
+        elif text == BTN_MENU:
+            await update.message.reply_html(MENU_TEXTS["main"], reply_markup=_menu_main_kb())
         elif text == BTN_STATUS:
-            await self.cmd_status(update, ctx)
-        elif text == BTN_SETTINGS:
-            await self.cmd_settings(update, ctx)
+            await update.message.reply_html(await self._status_text())
         elif text == BTN_PAUSE:
             await self.cmd_pause(update, ctx)
-        elif text == BTN_PRESETS:
-            await update.message.reply_text(
-                "Выбери набор фильтров:", reply_markup=_presets_keyboard()
+
+    # ---- Инлайн-меню (навигация кнопками) ----
+    async def _edit_menu(self, query, name: str) -> None:
+        kb = {
+            "main": _menu_main_kb(),
+            "presets": _menu_presets_kb(),
+            "filters": _menu_filters_kb(self.cfg),
+            "sources": _menu_sources_kb(self.cfg),
+        }[name]
+        try:
+            await query.edit_message_text(
+                MENU_TEXTS[name], parse_mode=ParseMode.HTML, reply_markup=kb
             )
-        # прочий текст игнорируем
+        except TelegramError:
+            pass  # напр. "message is not modified" — игнорируем
 
     async def on_callback(self, update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
         data = query.data or ""
+
+        if data == "noop":
+            await query.answer()
+            return
+
         if data == "hide":
             await query.answer("Скрыто")
             try:
@@ -303,6 +386,32 @@ class ArbitrageBot:
             except TelegramError:
                 pass
             return
+
+        if data.startswith("menu:"):
+            await query.answer()
+            await self._edit_menu(query, data.split(":", 1)[1])
+            return
+
+        if data == "act:scan":
+            await query.answer("Сканирую…")
+            await self._scan_to(query.message)
+            return
+
+        if data == "act:status":
+            await query.answer()
+            await query.message.reply_html(await self._status_text())
+            return
+
+        if data == "act:settings":
+            await query.answer()
+            await query.message.reply_html(self._settings_text())
+            return
+
+        if data == "act:pause":
+            self._paused = not self._paused
+            await query.answer("⏸️ Пауза" if self._paused else "▶️ Работает")
+            return
+
         if data.startswith("preset:"):
             name = data.split(":", 1)[1]
             preset = PRESETS.get(name)
@@ -315,11 +424,39 @@ class ArbitrageBot:
             applied = ", ".join(f"{k}={v}" for k, v in preset.items())
             await query.message.reply_text(f"✅ Пресет «{name}»: {applied}")
             return
+
+        if data.startswith("set:"):
+            _, key, delta = data.split(":", 2)
+            try:
+                new_val = getattr(self.cfg, key) + float(delta)
+            except (AttributeError, ValueError):
+                await query.answer("Ошибка")
+                return
+            self.cfg.set_param(key, str(round(max(new_val, 0), 2)))
+            await query.answer(f"{key} = {getattr(self.cfg, key):g}")
+            await self._edit_menu(query, "filters")
+            return
+
+        if data.startswith("toggle:"):
+            what = data.split(":", 1)[1]
+            attr = {
+                "skinport": "skinport_enabled",
+                "csmoney": "csmoney_enabled",
+                "weapons": "weapons_only",
+                "status": "check_live_status",
+                "stability": "analyze_stability",
+            }.get(what)
+            if attr:
+                setattr(self.cfg, attr, not getattr(self.cfg, attr))
+                await query.answer("Переключено")
+                await self._edit_menu(query, "sources")
+            else:
+                await query.answer()
+            return
+
         await query.answer()
 
     def run(self) -> None:
-        # Python 3.14 больше не создаёт event loop автоматически — создаём его
-        # явно, иначе run_polling падает с "no current event loop in thread".
         try:
             asyncio.get_running_loop()
         except RuntimeError:
