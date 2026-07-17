@@ -211,8 +211,12 @@ class CsFloatClient:
             logger.debug("Не удалось проверить статус %s: %s", listing_id, exc)
             return "unknown"
 
-        data = payload.get("data") if isinstance(payload, dict) else payload
-        if not isinstance(data, dict):
+        # Ответ может быть {"data": {...}} или сам объект лота {...}
+        if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+            data = payload["data"]
+        elif isinstance(payload, dict):
+            data = payload
+        else:
             return "unknown"
         state = str(data.get("state") or "").lower()
         if state == "listed":
