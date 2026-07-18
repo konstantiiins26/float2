@@ -192,6 +192,18 @@ class ArbitrageBot:
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.on_text)
         )
+        self.app.add_error_handler(self.on_error)
+
+    async def on_error(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Тихо переживаем сетевые сбои (DNS/таймаут при связи с Telegram),
+        не роняя бота простынёй traceback."""
+        from telegram.error import NetworkError, TimedOut
+
+        err = context.error
+        if isinstance(err, (NetworkError, TimedOut)):
+            logger.warning("Сеть моргнула при обращении к Telegram: %s", err)
+        else:
+            logger.error("Ошибка обработчика: %s", err)
 
     # ---- Жизненный цикл ----
     async def _on_startup(self, app: Application) -> None:
