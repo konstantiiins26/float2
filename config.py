@@ -113,6 +113,9 @@ class Config:
     # хорошие офферы считаются только по CSFloat (покупка и продажа на CSFloat).
     market_enabled: bool = True
 
+    # Показывать цену-ориентир Buff163 (публичный фид, ключ не нужен)
+    buff_enabled: bool = True
+
     # Экспериментально: искать предметы ещё и на CS.MONEY (может блокироваться)
     csmoney_enabled: bool = False
 
@@ -160,6 +163,7 @@ class Config:
         cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
         cfg.csfloat_enabled = _get_bool("CSFLOAT_ENABLED", True)
         cfg.market_enabled = _get_bool("MARKET_CSGO_ENABLED", True)
+        cfg.buff_enabled = _get_bool("BUFF_ENABLED", True)
         cfg.csmoney_enabled = _get_bool("CSMONEY_ENABLED", False)
         cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
         cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()

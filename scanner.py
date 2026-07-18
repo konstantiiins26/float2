@@ -12,6 +12,7 @@ import aiohttp
 from analysis.arbitrage import Opportunity, evaluate
 from analysis.stability import analyze as analyze_stability
 from config import Config
+from sources.buff163 import BuffClient
 from sources.csfloat import CsFloatClient
 from sources.csmoney import CsMoneyClient
 from sources.market_csgo import MarketCsgoClient
@@ -37,6 +38,7 @@ class Scanner:
             api_key=cfg.skinport_api_key,
             insecure=cfg.skinport_insecure,
         )
+        self.buff = BuffClient(session, usd_rate=cfg.usd_rate)
         self._seen: set[str] = self._load_seen()
         self.last_error: str | None = None
 
@@ -88,12 +90,22 @@ class Scanner:
             else:
                 logger.info("CS.MONEY не вернул предметов (блокировка/формат).")
 
+        if self.cfg.buff_enabled:
+            await self.buff.ensure_loaded()
+
         opportunities: list[Opportunity] = []
         for listing in listings:
             market_price = await self.market.get_price(listing.market_hash_name)
             opp = evaluate(listing, market_price, self.cfg)
-            if opp:
-                opportunities.append(opp)
+            if not opp:
+                continue
+            # Ориентир Buff163 (из кэшированного фида, без доп. запросов)
+            if self.cfg.buff_enabled:
+                buff = await self.buff.get_price(listing.market_hash_name)
+                if buff:
+                    opp.buff_start = buff.starting_at
+                    opp.buff_order = buff.highest_order
+            opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
         return opportunities

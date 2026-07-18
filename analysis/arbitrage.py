@@ -53,10 +53,19 @@ class Opportunity:
     is_rank_find: bool = False  # найден из-за топового ранга по флоату
     float_rank: Optional[int] = None
     rank_kind: str = ""
+    buff_start: Optional[float] = None   # Buff163: цена лотов (рыночная), валюта
+    buff_order: Optional[float] = None   # Buff163: цена ордера (быстрая продажа)
 
     @property
     def best(self) -> ResaleRoute:
         return self.routes[0]
+
+    @property
+    def buff_pct(self) -> Optional[float]:
+        """За сколько % от рыночной цены Buff163 куплено (меньше = лучше)."""
+        if self.buff_start and self.buff_start > 0:
+            return round(self.buy_price / self.buff_start * 100.0, 1)
+        return None
 
     @property
     def csfloat_route(self) -> Optional[ResaleRoute]:

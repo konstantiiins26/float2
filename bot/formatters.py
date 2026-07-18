@@ -122,16 +122,30 @@ def format_opportunity(o: Opportunity) -> str:
             f"(<b>{mr.profit_abs:+.2f}{s} / {mr.profit_pct:+.1f}%</b>)"
         )
 
-    # CSFloat по средней цене — справочно, для глаза
+    # CSFloat Appraiser (оценка) — справочно, для глаза
     cr = o.csfloat_route
     if cr:
         emoji = "🟢" if cr.profit_abs > 0 else "🔴"
         lines.append(
-            f"{emoji} По средней цене CSFloat: {s}{cr.gross_price:.2f} "
+            f"{emoji} CSFloat Appraiser (оценка): {s}{cr.gross_price:.2f} "
             f"→ на руки {s}{cr.net_price:.2f} "
             f"(<b>{cr.profit_abs:+.2f}{s} / {cr.profit_pct:+.1f}%</b>) "
-            f"<i>— средняя, справочно</i>"
+            f"<i>— справочно</i>"
         )
+
+    # Ориентир Buff163 (эталон рыночной цены, как показывает BetterFloat)
+    if o.buff_start or o.buff_order:
+        bits = []
+        if o.buff_start:
+            bits.append(f"лоты {s}{o.buff_start:.2f}")
+        if o.buff_order:
+            bits.append(f"ордер {s}{o.buff_order:.2f}")
+        buff_line = "🅱️ <b>Buff163:</b> " + " · ".join(bits)
+        pct = o.buff_pct
+        if pct is not None:
+            mark = "🟢" if pct <= 90 else ("🟡" if pct <= 100 else "🔴")
+            buff_line += f" · {mark} куплено за <b>{pct:.0f}%</b> от Buff"
+        lines.append(buff_line)
 
     lines += [
         "",
