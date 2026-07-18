@@ -162,7 +162,7 @@ def evaluate(
             # market.csgo выключен — оцениваем по ликвидности самого CSFloat
             liquid = listing.reference_quantity >= cfg.min_csfloat_quantity
     else:
-        # Skinport/CS.MONEY продаются только на market.csgo — без него смысла нет
+        # Skinport продаётся только на market.csgo — без него смысла нет
         if not market_on:
             return None
         liquid = market_volume >= cfg.min_market_volume

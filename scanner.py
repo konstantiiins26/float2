@@ -14,7 +14,6 @@ from analysis.stability import analyze as analyze_stability
 from config import Config
 from sources.buff163 import BuffClient
 from sources.csfloat import CsFloatClient
-from sources.csmoney import CsMoneyClient
 from sources.market_csgo import MarketCsgoClient
 from sources.skinport import SkinportClient
 
@@ -31,7 +30,6 @@ class Scanner:
         self.market = MarketCsgoClient(
             session, cfg.market_csgo_api_key, currency=cfg.currency
         )
-        self.csmoney = CsMoneyClient(session, usd_rate=cfg.usd_rate)
         self.skinport = SkinportClient(
             session,
             currency=cfg.currency,
@@ -78,20 +76,23 @@ class Scanner:
                     self.csfloat.last_error
                     or "CSFloat не вернул листингов (проверь сеть/ключ)."
                 )
+            # Второй проход — по «скидке к рынку»: CSFloat сам сортирует лоты,
+            # которые дешевле его оценки. Именно там прячутся лучшие сделки.
+            if self.cfg.scan_deals:
+                deals = await self.csfloat.get_listings(
+                    limit=self.cfg.scan_limit,
+                    sort_by="highest_discount",
+                    min_price=self.cfg.min_buy_price or None,
+                    max_price=self.cfg.max_buy_price or None,
+                )
+                seen_ids = {l.listing_id for l in listings}
+                listings += [l for l in deals if l.listing_id not in seen_ids]
 
         # Добавляем предметы со Skinport (публичный API)
         if self.cfg.skinport_enabled:
             skinport_listings = await self.skinport.get_listings()
             if skinport_listings:
                 listings = listings + skinport_listings
-
-        # Экспериментально: добавляем предметы с CS.MONEY
-        if self.cfg.csmoney_enabled:
-            csmoney_listings = await self.csmoney.get_listings(limit=self.cfg.scan_limit)
-            if csmoney_listings:
-                listings = listings + csmoney_listings
-            else:
-                logger.info("CS.MONEY не вернул предметов (блокировка/формат).")
 
         if self.cfg.buff_enabled:
             await self.buff.ensure_loaded()

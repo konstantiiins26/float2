@@ -114,6 +114,14 @@ class Config:
     # хорошие офферы считаются только по CSFloat (покупка и продажа на CSFloat).
     market_enabled: bool = True
 
+    # Skinport (публичный API, ключ не нужен)
+    skinport_enabled: bool = True
+    skinport_api_key: str = ""
+    skinport_insecure: bool = False
+
+    # Дополнительно сканировать CSFloat по «скидке к рынку» (лучшие сделки)
+    scan_deals: bool = True
+
     # Показывать цену-ориентир Buff163 (публичный фид, ключ не нужен)
     buff_enabled: bool = True
     buff_fee: float = 0.025  # комиссия продавца на Buff163 (~2.5%)
@@ -121,16 +129,6 @@ class Config:
     buff_float_sensitivity: float = 0.15
     # Считать путь «купить дёшево на CSFloat → продать на CSFloat по цене Buff»
     buff_resale: bool = True
-
-    # Экспериментально: искать предметы ещё и на CS.MONEY (может блокироваться)
-    csmoney_enabled: bool = False
-
-    # Искать предметы для покупки на Skinport (публичный API, ключ не нужен)
-    skinport_enabled: bool = True
-    skinport_api_key: str = ""
-    # Отключить проверку SSL для Skinport (крайний случай — если у них просрочен
-    # сертификат). Небезопасно (риск подмены цен), включай только осознанно.
-    skinport_insecure: bool = False
 
     # Переопределения, заданные из чата (в память + файл)
     overrides: dict[str, float] = field(default_factory=dict)
@@ -173,7 +171,7 @@ class Config:
         cfg.buff_fee = _get_float("BUFF_FEE", 0.025)
         cfg.buff_float_sensitivity = _get_float("BUFF_FLOAT_SENSITIVITY", 0.15)
         cfg.buff_resale = _get_bool("BUFF_RESALE", True)
-        cfg.csmoney_enabled = _get_bool("CSMONEY_ENABLED", False)
+        cfg.scan_deals = _get_bool("SCAN_DEALS", True)
         cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
         cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()
         cfg.skinport_insecure = _get_bool("SKINPORT_INSECURE", False)

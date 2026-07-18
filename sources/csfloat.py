@@ -41,7 +41,7 @@ class CsFloatListing:
     created_at: str = ""      # когда листинг выставлен (ISO8601)
     watchers: int = 0         # сколько человек «наблюдают» за лотом
     item_type: str = ""       # тип предмета (skin, sticker, ...) если есть
-    source: str = "csfloat"   # площадка покупки: csfloat | csmoney
+    source: str = "csfloat"   # площадка покупки: csfloat | skinport
     page_url: str = ""        # прямая ссылка на лот (если не csfloat)
     paint_seed: Optional[int] = None   # сид/паттерн
     low_rank: Optional[int] = None     # место по самому низкому флоату (1 = топ)
@@ -67,7 +67,6 @@ class CsFloatListing:
     def source_name(self) -> str:
         return {
             "csfloat": "CSFloat",
-            "csmoney": "CS.MONEY",
             "skinport": "Skinport",
         }.get(self.source, self.source)
 

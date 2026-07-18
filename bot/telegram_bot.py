@@ -131,8 +131,8 @@ def _menu_sources_kb(cfg: Config) -> InlineKeyboardMarkup:
         [
             [InlineKeyboardButton(f"🟦 CSFloat: {s(cfg.csfloat_enabled)}", callback_data="toggle:csfloat")],
             [InlineKeyboardButton(f"🟧 Skinport: {s(cfg.skinport_enabled)}", callback_data="toggle:skinport")],
-            [InlineKeyboardButton(f"🟥 CS.MONEY: {s(cfg.csmoney_enabled)}", callback_data="toggle:csmoney")],
             [InlineKeyboardButton(f"💰 Продажа market.csgo: {s(cfg.market_enabled)}", callback_data="toggle:market")],
+            [InlineKeyboardButton(f"🔥 Скан «лучшие сделки»: {s(cfg.scan_deals)}", callback_data="toggle:deals")],
             [InlineKeyboardButton(f"🅱️ Ориентир Buff163: {s(cfg.buff_enabled)}", callback_data="toggle:buff")],
             [InlineKeyboardButton(f"Только оружие/ножи/агенты: {s(cfg.weapons_only)}", callback_data="toggle:weapons")],
             [InlineKeyboardButton(f"Проверка «куплен?»: {s(cfg.check_live_status)}", callback_data="toggle:status")],
@@ -282,9 +282,9 @@ class ArbitrageBot:
             f"Прайс-лист market.csgo: {market_size} предметов\n"
             f"Чат для оповещений: {chat}\n"
             f"Покупка: CSFloat {'вкл' if self.cfg.csfloat_enabled else 'выкл'} | "
-            f"Skinport {'вкл' if self.cfg.skinport_enabled else 'выкл'} | "
-            f"CS.MONEY {'вкл' if self.cfg.csmoney_enabled else 'выкл'}\n"
-            f"Продажа market.csgo: {'вкл' if self.cfg.market_enabled else 'выкл'}\n"
+            f"Skinport {'вкл' if self.cfg.skinport_enabled else 'выкл'}\n"
+            f"Продажа market.csgo: {'вкл' if self.cfg.market_enabled else 'выкл'} | "
+            f"Скан лучших сделок: {'вкл' if self.cfg.scan_deals else 'выкл'}\n"
             f"Только оружие/ножи/перчатки/агенты: {'да' if self.cfg.weapons_only else 'нет'}"
         )
 
@@ -460,8 +460,8 @@ class ArbitrageBot:
             attr = {
                 "csfloat": "csfloat_enabled",
                 "skinport": "skinport_enabled",
-                "csmoney": "csmoney_enabled",
                 "market": "market_enabled",
+                "deals": "scan_deals",
                 "buff": "buff_enabled",
                 "weapons": "weapons_only",
                 "status": "check_live_status",
