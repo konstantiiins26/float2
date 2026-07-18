@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass
@@ -147,6 +148,26 @@ class CsFloatClient:
         # Кэш истории цен: name -> (время, список цен в целевой валюте)
         self._history_cache: dict[str, tuple[float, list[float]]] = {}
         self.last_error: str = ""  # понятная причина последнего пустого ответа
+        # Троттлинг против лимита 429
+        self._min_gap = 1.2          # мин. пауза между запросами к CSFloat, сек
+        self._last_ts = 0.0
+        self._cooldown_until = 0.0   # после 429 не шлём запросы это время
+
+    async def _gate(self) -> bool:
+        """Пропускает запрос к CSFloat, соблюдая паузу. False = сейчас в откате
+        после лимита 429, запрос делать нельзя."""
+        now = time.monotonic()
+        if now < self._cooldown_until:
+            return False
+        wait = self._min_gap - (now - self._last_ts)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        self._last_ts = time.monotonic()
+        return True
+
+    def _hit_429(self) -> None:
+        self._cooldown_until = time.monotonic() + 60  # минута паузы
+        logger.warning("CSFloat 429 — пауза 60 сек, чтобы не усугублять лимит.")
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -174,6 +195,9 @@ class CsFloatClient:
             params["max_price"] = int(max_price / self._usd_rate * 100)
 
         self.last_error = ""
+        if not await self._gate():
+            self.last_error = "CSFloat: пауза после лимита 429 — подожди минуту."
+            return []
         try:
             async with self._session.get(
                 f"{BASE_URL}/listings",
@@ -184,8 +208,10 @@ class CsFloatClient:
                 if resp.status != 200:
                     body = await resp.text()
                     logger.error("CSFloat вернул %s: %s", resp.status, body[:200])
+                    if resp.status == 429:
+                        self._hit_429()
                     hint = {
-                        429: "слишком много запросов (лимит). Увеличь интервал скана.",
+                        429: "слишком много запросов (лимит). Пауза автоматически.",
                         401: "неверный ключ CSFloat.",
                         403: "доступ запрещён (ключ/блокировка).",
                     }.get(resp.status, body[:120])
@@ -229,6 +255,8 @@ class CsFloatClient:
         показываем, просто без гарантии)."""
         if not listing_id:
             return "unknown"
+        if not await self._gate():
+            return "unknown"
         try:
             async with self._session.get(
                 f"{BASE_URL}/listings/{listing_id}",
@@ -237,6 +265,9 @@ class CsFloatClient:
             ) as resp:
                 if resp.status == 404:
                     return "sold"
+                if resp.status == 429:
+                    self._hit_429()
+                    return "unknown"
                 if resp.status != 200:
                     return "unknown"
                 payload = await resp.json()
@@ -271,6 +302,8 @@ class CsFloatClient:
         return prices
 
     async def _fetch_price_history(self, market_hash_name: str) -> list[float]:
+        if not await self._gate():
+            return []
         url = f"{BASE_URL}/history/{quote(market_hash_name, safe='')}/sales"
         try:
             async with self._session.get(
@@ -278,6 +311,9 @@ class CsFloatClient:
                 headers=self._headers(),
                 timeout=aiohttp.ClientTimeout(total=8),
             ) as resp:
+                if resp.status == 429:
+                    self._hit_429()
+                    return []
                 if resp.status != 200:
                     return []
                 payload = await resp.json()
