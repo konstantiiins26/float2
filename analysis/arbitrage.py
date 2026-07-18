@@ -22,6 +22,7 @@ from analysis.liquidity import (
     liquidity_score,
 )
 from analysis.categories import is_wanted
+from analysis.market_stability import MarketStability, analyze_market
 from analysis.stability import StabilityReport
 from config import Config
 from sources.csfloat import CsFloatListing
@@ -47,7 +48,8 @@ class Opportunity:
     float_edge_distance: float
     currency_symbol: str = "$"
     live_status: str = ""  # "active" | "sold" | "unknown" (проверка перед отправкой)
-    stability: Optional["StabilityReport"] = None  # анализ стабильности цены
+    market_stability: Optional["MarketStability"] = None  # стабильность рынка market.csgo
+    stability: Optional["StabilityReport"] = None  # история цены CSFloat (второстепенно)
 
     @property
     def best(self) -> ResaleRoute:
@@ -104,29 +106,38 @@ def evaluate(
     if not is_float_stable(listing.float_value, cfg.float_edge_margin):
         return None
 
-    # Ликвидность. Для CSFloat — объём market.csgo + кол-во листингов CSFloat.
-    # Для других площадок (CS.MONEY) листингов CSFloat нет, смотрим только объём.
-    market_volume = market.volume if market else 0
+    # Учитываем, включён ли market.csgo как площадка продажи
+    market_on = cfg.market_enabled and market is not None
+    market_volume = market.volume if market_on else 0
+
+    # Ликвидность
     if listing.source == "csfloat":
-        liquid = is_liquid(
-            market_volume,
-            listing.reference_quantity,
-            cfg.min_market_volume,
-            cfg.min_csfloat_quantity,
-        )
+        if market_on:
+            liquid = is_liquid(
+                market_volume,
+                listing.reference_quantity,
+                cfg.min_market_volume,
+                cfg.min_csfloat_quantity,
+            )
+        else:
+            # market.csgo выключен — оцениваем по ликвидности самого CSFloat
+            liquid = listing.reference_quantity >= cfg.min_csfloat_quantity
     else:
+        # Skinport/CS.MONEY продаются только на market.csgo — без него смысла нет
+        if not market_on:
+            return None
         liquid = market_volume >= cfg.min_market_volume
     if not liquid:
         return None
 
-    # Считаем оба пути перепродажи
+    # Пути перепродажи
     routes: list[ResaleRoute] = []
     r_csfloat = _route(
         "CSFloat", buy, listing.predicted_price, cfg.csfloat_fee
     )
     if r_csfloat:
         routes.append(r_csfloat)
-    if market:
+    if market_on:
         r_market = _route(
             "market.csgo", buy, market.price, cfg.market_csgo_fee
         )
@@ -145,12 +156,20 @@ def evaluate(
     if best.profit_pct < cfg.min_profit_percent:
         return None
 
+    reference_avg = listing.predicted_price if listing.predicted_price > 0 else None
+    market_stability = (
+        analyze_market(market_volume, market.price, reference_avg)
+        if market_on
+        else None
+    )
+
     return Opportunity(
         listing=listing,
-        market=market,
+        market=market if market_on else None,
         buy_price=buy,
         routes=routes,
         liquidity=liquidity_score(market_volume, listing.reference_quantity),
         float_edge_distance=round(distance_to_wear_edge(listing.float_value), 4),
         currency_symbol=cfg.currency_symbol,
+        market_stability=market_stability,
     )
