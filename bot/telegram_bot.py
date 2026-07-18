@@ -52,6 +52,7 @@ FILTER_ADJUST = [
     ("min_csfloat_quantity", "Лоты CSFloat", 5),
     ("min_buy_price", "Мин. цена €", 1),
     ("max_buy_price", "Макс. цена € (0=∞)", 5),
+    ("float_rank_alert", "Топ по флоату (0=выкл)", 1),
 ]
 
 HELP_TEXT = (

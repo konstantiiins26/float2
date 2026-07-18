@@ -86,9 +86,26 @@ def format_opportunity(o: Opportunity) -> str:
         else "—"
     )
 
-    lines = [
-        f"🎯 <b>{prefix}{name}</b>",
-        f"Износ: {escape(l.wear_name or '—')} | Float: <code>{float_str}</code>",
+    lines = [f"🎯 <b>{prefix}{name}</b>"]
+
+    # Бейдж «топ по флоату» из базы CSFloat
+    if o.is_rank_find and o.float_rank:
+        lines.append(
+            f"🏅 <b>ТОП #{o.float_rank} по {escape(o.rank_kind)} флоату</b> "
+            f"(редкий предмет из базы CSFloat!)"
+        )
+
+    lines.append(f"Износ: {escape(l.wear_name or '—')} | Float: <code>{float_str}</code>")
+    # Ранг/сид, если известны
+    rank_bits = []
+    if l.float_rank:
+        rank_bits.append(f"ранг по флоату #{l.float_rank} ({escape(l.rank_kind)})")
+    if l.paint_seed is not None:
+        rank_bits.append(f"сид {l.paint_seed}")
+    if rank_bits:
+        lines.append("🎲 " + " · ".join(rank_bits))
+
+    lines += [
         "",
         f"🛒 Купить на {escape(l.source_name)}: <b>{s}{o.buy_price:.2f}</b>",
         "",

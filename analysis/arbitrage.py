@@ -50,6 +50,9 @@ class Opportunity:
     live_status: str = ""  # "active" | "sold" | "unknown" (проверка перед отправкой)
     market_stability: Optional["MarketStability"] = None  # стабильность рынка market.csgo
     stability: Optional["StabilityReport"] = None  # история цены CSFloat (второстепенно)
+    is_rank_find: bool = False  # найден из-за топового ранга по флоату
+    float_rank: Optional[int] = None
+    rank_kind: str = ""
 
     @property
     def best(self) -> ResaleRoute:
@@ -96,6 +99,11 @@ def evaluate(
     if cfg.weapons_only and not is_wanted(listing.market_hash_name):
         return None
 
+    # Топ по флоату из базы CSFloat: редкий предмет (например #1 по флоату).
+    # Такие показываем даже без арбитражной выгоды и без порогов ликвидности.
+    rank = listing.float_rank
+    is_rank_find = bool(cfg.float_rank_alert and rank and rank <= cfg.float_rank_alert)
+
     # Ценовой диапазон покупки
     if cfg.min_buy_price and buy < cfg.min_buy_price:
         return None
@@ -127,7 +135,7 @@ def evaluate(
         if not market_on:
             return None
         liquid = market_volume >= cfg.min_market_volume
-    if not liquid:
+    if not liquid and not is_rank_find:
         return None
 
     # Пути перепродажи
@@ -145,16 +153,20 @@ def evaluate(
             routes.append(r_market)
 
     if not routes:
-        return None
+        if is_rank_find:
+            routes.append(ResaleRoute("CSFloat", round(buy, 2), round(buy, 2), 0.0, 0.0))
+        else:
+            return None
 
     routes.sort(key=lambda r: r.profit_abs, reverse=True)
     best = routes[0]
 
-    # Пороги прибыли
-    if best.profit_abs < cfg.min_profit_abs:
-        return None
-    if best.profit_pct < cfg.min_profit_percent:
-        return None
+    # Пороги прибыли (топовый ранг по флоату пропускаем мимо порогов)
+    if not is_rank_find:
+        if best.profit_abs < cfg.min_profit_abs:
+            return None
+        if best.profit_pct < cfg.min_profit_percent:
+            return None
 
     reference_avg = listing.predicted_price if listing.predicted_price > 0 else None
     market_stability = (
@@ -172,4 +184,7 @@ def evaluate(
         float_edge_distance=round(distance_to_wear_edge(listing.float_value), 4),
         currency_symbol=cfg.currency_symbol,
         market_stability=market_stability,
+        is_rank_find=is_rank_find,
+        float_rank=rank,
+        rank_kind=listing.rank_kind if rank else "",
     )

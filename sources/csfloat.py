@@ -42,10 +42,25 @@ class CsFloatListing:
     item_type: str = ""       # тип предмета (skin, sticker, ...) если есть
     source: str = "csfloat"   # площадка покупки: csfloat | csmoney
     page_url: str = ""        # прямая ссылка на лот (если не csfloat)
+    paint_seed: Optional[int] = None   # сид/паттерн
+    low_rank: Optional[int] = None     # место по самому низкому флоату (1 = топ)
+    high_rank: Optional[int] = None    # место по самому высокому флоату (1 = топ)
 
     @property
     def url(self) -> str:
         return self.page_url or f"https://csfloat.com/item/{self.listing_id}"
+
+    @property
+    def float_rank(self) -> Optional[int]:
+        """Лучшее (наименьшее) место по флоату среди low/high, если есть."""
+        ranks = [r for r in (self.low_rank, self.high_rank) if r]
+        return min(ranks) if ranks else None
+
+    @property
+    def rank_kind(self) -> str:
+        """Какой это ранг (в дательном падеже): низкому или высокому флоату."""
+        lr, hr = self.low_rank or 10**9, self.high_rank or 10**9
+        return "низкому" if lr <= hr else "высокому"
 
     @property
     def source_name(self) -> str:
@@ -109,6 +124,9 @@ def _parse_listing(raw: dict[str, Any]) -> Optional[CsFloatListing]:
             created_at=str(raw.get("created_at") or ""),
             watchers=int(raw.get("watchers") or 0),
             item_type=str(item.get("type") or ""),
+            paint_seed=(int(item["paint_seed"]) if item.get("paint_seed") is not None else None),
+            low_rank=(int(item["low_rank"]) if item.get("low_rank") is not None else None),
+            high_rank=(int(item["high_rank"]) if item.get("high_rank") is not None else None),
         )
     except (TypeError, ValueError) as exc:
         logger.warning("Не удалось разобрать листинг CSFloat: %s", exc)
