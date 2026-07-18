@@ -146,6 +146,7 @@ class CsFloatClient:
         self._usd_rate = usd_rate if usd_rate > 0 else 1.0
         # Кэш истории цен: name -> (время, список цен в целевой валюте)
         self._history_cache: dict[str, tuple[float, list[float]]] = {}
+        self.last_error: str = ""  # понятная причина последнего пустого ответа
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -172,6 +173,7 @@ class CsFloatClient:
         if max_price:
             params["max_price"] = int(max_price / self._usd_rate * 100)
 
+        self.last_error = ""
         try:
             async with self._session.get(
                 f"{BASE_URL}/listings",
@@ -181,22 +183,35 @@ class CsFloatClient:
             ) as resp:
                 if resp.status != 200:
                     body = await resp.text()
-                    logger.error(
-                        "CSFloat вернул %s: %s", resp.status, body[:200]
-                    )
+                    logger.error("CSFloat вернул %s: %s", resp.status, body[:200])
+                    hint = {
+                        429: "слишком много запросов (лимит). Увеличь интервал скана.",
+                        401: "неверный ключ CSFloat.",
+                        403: "доступ запрещён (ключ/блокировка).",
+                    }.get(resp.status, body[:120])
+                    self.last_error = f"CSFloat вернул HTTP {resp.status}: {hint}"
                     return []
                 payload = await resp.json()
         except (aiohttp.ClientError, TimeoutError) as exc:
             logger.error("Ошибка запроса к CSFloat: %s", exc)
+            self.last_error = f"CSFloat: ошибка сети — {exc}"
             return []
 
         # Ответ может быть {"data": [...]} или просто [...]
         rows = payload.get("data") if isinstance(payload, dict) else payload
         if not isinstance(rows, list):
             logger.error("Неожиданный формат ответа CSFloat: %r", type(payload))
+            self.last_error = "CSFloat: неожиданный формат ответа."
             return []
 
         listings = [l for l in (_parse_listing(r) for r in rows) if l is not None]
+        if rows and not listings:
+            self.last_error = (
+                f"CSFloat отдал {len(rows)} предметов, но ни один не распознан "
+                "(изменился формат ответа)."
+            )
+        elif not rows:
+            self.last_error = "CSFloat отдал пустой список (0 предметов)."
 
         # Конвертируем цены USD -> целевая валюта
         if self._usd_rate != 1.0:

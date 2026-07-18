@@ -22,6 +22,7 @@ from analysis.liquidity import (
     liquidity_score,
 )
 from analysis.categories import is_wanted
+from analysis.float_price import estimate_for_float
 from analysis.market_stability import MarketStability, analyze_market
 from analysis.stability import StabilityReport
 from config import Config
@@ -86,6 +87,10 @@ class Opportunity:
     def market_route(self) -> Optional[ResaleRoute]:
         return next((r for r in self.routes if r.venue == "market.csgo"), None)
 
+    @property
+    def buff_route(self) -> Optional[ResaleRoute]:
+        return next((r for r in self.routes if r.venue == "CSFloat по Buff"), None)
+
 
 def _route(venue: str, buy_price: float, gross: float, fee: float) -> Optional[ResaleRoute]:
     if gross <= 0:
@@ -106,9 +111,15 @@ def evaluate(
     listing: CsFloatListing,
     market: Optional[MarketPrice],
     cfg: Config,
+    buff_base: Optional[float] = None,
+    buff_order: Optional[float] = None,
 ) -> Optional[Opportunity]:
     """Оценивает один листинг. Возвращает Opportunity, если сделка проходит
-    все фильтры, иначе None."""
+    все фильтры, иначе None.
+
+    buff_base — цена Buff163 за износ (лоты); из неё считаем оценку за конкретный
+    флоат и путь «купить на CSFloat дёшево → продать на CSFloat по цене Buff».
+    """
     buy = listing.buy_price
     if buy <= 0:
         return None
@@ -172,6 +183,15 @@ def evaluate(
         if r_market:
             routes.append(r_market)
 
+    # Путь «продать на CSFloat по цене Buff» (оценка Buff за конкретный флоат)
+    buff_float_estimate = estimate_for_float(
+        buff_base, listing.float_value, listing.wear_name, cfg.buff_float_sensitivity
+    ) if buff_base else None
+    if cfg.buff_resale and buff_float_estimate:
+        r_buff = _route("CSFloat по Buff", buy, buff_float_estimate, cfg.csfloat_fee)
+        if r_buff:
+            routes.append(r_buff)
+
     if not routes:
         if is_rank_find:
             routes.append(ResaleRoute("CSFloat", round(buy, 2), round(buy, 2), 0.0, 0.0))
@@ -208,4 +228,7 @@ def evaluate(
         float_rank=rank,
         rank_kind=listing.rank_kind if rank else "",
         buff_fee=cfg.buff_fee,
+        buff_start=buff_base,
+        buff_order=buff_order,
+        buff_float_estimate=buff_float_estimate,
     )

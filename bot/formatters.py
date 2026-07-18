@@ -142,22 +142,26 @@ def format_opportunity(o: Opportunity) -> str:
             bits.append(f"ордер {s}{o.buff_order:.2f}")
         lines.append("🅱️ <b>Buff163</b> (за весь износ): " + " · ".join(bits))
 
-        # Оценка Buff за конкретный флоат (как float appraiser)
+        # Продать на CSFloat по цене Buff (за конкретный флоат) + профит
         est = o.buff_float_estimate
+        br = o.buff_route
         if est:
-            net = o.buff_float_net
             float_str2 = (
                 f"{l.float_value:.4f}".rstrip("0").rstrip(".")
                 if l.float_value is not None else "—"
             )
-            line = f"🎯 Buff за твой флоат ({float_str2}) ≈ <b>{s}{est:.2f}</b>"
-            if net is not None:
-                line += f" → на руки {s}{net:.2f}"
+            line = f"🎯 Продать на CSFloat по Buff (флоат {float_str2}): <b>{s}{est:.2f}</b>"
+            if br:
+                emoji = "🟢" if br.profit_abs > 0 else "🔴"
+                line += (
+                    f" → на руки {s}{br.net_price:.2f} "
+                    f"({emoji}<b>{br.profit_abs:+.2f}{s} / {br.profit_pct:+.1f}%</b>)"
+                )
+            lines.append(line)
             pct = o.buff_pct
             if pct is not None:
                 mark = "🟢" if pct <= 90 else ("🟡" if pct <= 100 else "🔴")
-                line += f" · {mark} куплено за <b>{pct:.0f}%</b> от Buff"
-            lines.append(line)
+                lines.append(f"   {mark} куплено за <b>{pct:.0f}%</b> от цены Buff")
 
     lines += [
         "",

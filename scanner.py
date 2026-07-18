@@ -10,7 +10,6 @@ from pathlib import Path
 import aiohttp
 
 from analysis.arbitrage import Opportunity, evaluate
-from analysis.float_price import estimate_for_float
 from analysis.stability import analyze as analyze_stability
 from config import Config
 from sources.buff163 import BuffClient
@@ -75,7 +74,10 @@ class Scanner:
                 max_price=self.cfg.max_buy_price or None,
             )
             if not listings:
-                self.last_error = "CSFloat не вернул листингов (проверь сеть/ключ)."
+                self.last_error = (
+                    self.csfloat.last_error
+                    or "CSFloat не вернул листингов (проверь сеть/ключ)."
+                )
 
         # Добавляем предметы со Skinport (публичный API)
         if self.cfg.skinport_enabled:
@@ -97,23 +99,17 @@ class Scanner:
         opportunities: list[Opportunity] = []
         for listing in listings:
             market_price = await self.market.get_price(listing.market_hash_name)
-            opp = evaluate(listing, market_price, self.cfg)
-            if not opp:
-                continue
-            # Ориентир Buff163 (из кэшированного фида, без доп. запросов)
+            # Цена Buff163 (из кэшированного фида, без доп. запросов) — до оценки,
+            # чтобы учесть путь «продать на CSFloat по цене Buff».
+            buff_base = buff_order = None
             if self.cfg.buff_enabled:
                 buff = await self.buff.get_price(listing.market_hash_name)
                 if buff:
-                    opp.buff_start = buff.starting_at
-                    opp.buff_order = buff.highest_order
-                    # Оценка цены Buff за конкретный флоат (как float appraiser)
-                    opp.buff_float_estimate = estimate_for_float(
-                        buff.starting_at,
-                        listing.float_value,
-                        listing.wear_name,
-                        self.cfg.buff_float_sensitivity,
-                    )
-            opportunities.append(opp)
+                    buff_base = buff.starting_at
+                    buff_order = buff.highest_order
+            opp = evaluate(listing, market_price, self.cfg, buff_base, buff_order)
+            if opp:
+                opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
         return opportunities
