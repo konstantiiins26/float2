@@ -54,6 +54,7 @@ SETTABLE: dict[str, tuple[type, float, float | None, str]] = {
     "scan_interval": (int, 10, 86400, "интервал авто-скана, сек"),
     "csfloat_fee": (float, 0, 1, "комиссия CSFloat (доля)"),
     "market_csgo_fee": (float, 0, 1, "комиссия market.csgo (доля)"),
+    "buff_fee": (float, 0, 1, "комиссия Buff163 (доля)"),
 }
 
 
@@ -115,6 +116,9 @@ class Config:
 
     # Показывать цену-ориентир Buff163 (публичный фид, ключ не нужен)
     buff_enabled: bool = True
+    buff_fee: float = 0.025  # комиссия продавца на Buff163 (~2.5%)
+    # Насколько флоат влияет на оценку цены Buff (0.15 = до ±7.5% на краях износа)
+    buff_float_sensitivity: float = 0.15
 
     # Экспериментально: искать предметы ещё и на CS.MONEY (может блокироваться)
     csmoney_enabled: bool = False
@@ -164,6 +168,8 @@ class Config:
         cfg.csfloat_enabled = _get_bool("CSFLOAT_ENABLED", True)
         cfg.market_enabled = _get_bool("MARKET_CSGO_ENABLED", True)
         cfg.buff_enabled = _get_bool("BUFF_ENABLED", True)
+        cfg.buff_fee = _get_float("BUFF_FEE", 0.025)
+        cfg.buff_float_sensitivity = _get_float("BUFF_FLOAT_SENSITIVITY", 0.15)
         cfg.csmoney_enabled = _get_bool("CSMONEY_ENABLED", False)
         cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
         cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()

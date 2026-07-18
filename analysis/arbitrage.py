@@ -55,6 +55,8 @@ class Opportunity:
     rank_kind: str = ""
     buff_start: Optional[float] = None   # Buff163: цена лотов (рыночная), валюта
     buff_order: Optional[float] = None   # Buff163: цена ордера (быстрая продажа)
+    buff_fee: float = 0.025              # комиссия Buff163
+    buff_float_estimate: Optional[float] = None  # оценка цены Buff за твой флоат
 
     @property
     def best(self) -> ResaleRoute:
@@ -62,9 +64,18 @@ class Opportunity:
 
     @property
     def buff_pct(self) -> Optional[float]:
-        """За сколько % от рыночной цены Buff163 куплено (меньше = лучше)."""
-        if self.buff_start and self.buff_start > 0:
-            return round(self.buy_price / self.buff_start * 100.0, 1)
+        """За сколько % от цены Buff163 куплено (меньше = лучше). Если есть
+        оценка по флоату — считаем от неё, иначе от рыночной цены лотов."""
+        ref = self.buff_float_estimate or self.buff_start
+        if ref and ref > 0:
+            return round(self.buy_price / ref * 100.0, 1)
+        return None
+
+    @property
+    def buff_float_net(self) -> Optional[float]:
+        """Сколько на руки, если продать на Buff по оценке за твой флоат."""
+        if self.buff_float_estimate and self.buff_float_estimate > 0:
+            return round(self.buff_float_estimate * (1.0 - self.buff_fee), 2)
         return None
 
     @property
@@ -196,4 +207,5 @@ def evaluate(
         is_rank_find=is_rank_find,
         float_rank=rank,
         rank_kind=listing.rank_kind if rank else "",
+        buff_fee=cfg.buff_fee,
     )

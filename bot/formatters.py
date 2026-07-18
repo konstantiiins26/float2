@@ -140,12 +140,24 @@ def format_opportunity(o: Opportunity) -> str:
             bits.append(f"лоты {s}{o.buff_start:.2f}")
         if o.buff_order:
             bits.append(f"ордер {s}{o.buff_order:.2f}")
-        buff_line = "🅱️ <b>Buff163:</b> " + " · ".join(bits)
-        pct = o.buff_pct
-        if pct is not None:
-            mark = "🟢" if pct <= 90 else ("🟡" if pct <= 100 else "🔴")
-            buff_line += f" · {mark} куплено за <b>{pct:.0f}%</b> от Buff"
-        lines.append(buff_line)
+        lines.append("🅱️ <b>Buff163</b> (за весь износ): " + " · ".join(bits))
+
+        # Оценка Buff за конкретный флоат (как float appraiser)
+        est = o.buff_float_estimate
+        if est:
+            net = o.buff_float_net
+            float_str2 = (
+                f"{l.float_value:.4f}".rstrip("0").rstrip(".")
+                if l.float_value is not None else "—"
+            )
+            line = f"🎯 Buff за твой флоат ({float_str2}) ≈ <b>{s}{est:.2f}</b>"
+            if net is not None:
+                line += f" → на руки {s}{net:.2f}"
+            pct = o.buff_pct
+            if pct is not None:
+                mark = "🟢" if pct <= 90 else ("🟡" if pct <= 100 else "🔴")
+                line += f" · {mark} куплено за <b>{pct:.0f}%</b> от Buff"
+            lines.append(line)
 
     lines += [
         "",

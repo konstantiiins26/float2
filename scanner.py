@@ -10,6 +10,7 @@ from pathlib import Path
 import aiohttp
 
 from analysis.arbitrage import Opportunity, evaluate
+from analysis.float_price import estimate_for_float
 from analysis.stability import analyze as analyze_stability
 from config import Config
 from sources.buff163 import BuffClient
@@ -105,6 +106,13 @@ class Scanner:
                 if buff:
                     opp.buff_start = buff.starting_at
                     opp.buff_order = buff.highest_order
+                    # Оценка цены Buff за конкретный флоат (как float appraiser)
+                    opp.buff_float_estimate = estimate_for_float(
+                        buff.starting_at,
+                        listing.float_value,
+                        listing.wear_name,
+                        self.cfg.buff_float_sensitivity,
+                    )
             opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
