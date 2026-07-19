@@ -119,7 +119,10 @@ class Config:
     skinport_api_key: str = ""
     skinport_insecure: bool = False
 
-    # Pricempire — средняя (агрегированная) цена скина. Нужен API-ключ.
+    # Средняя цена по многим площадкам (агрегатор csgotrader, без ключа)
+    avg_enabled: bool = True
+
+    # Pricempire — средняя по ~30 площадкам. Нужен API-ключ (перекрывает агрегатор).
     pricempire_enabled: bool = True
     pricempire_api_key: str = ""
 
@@ -179,6 +182,7 @@ class Config:
         cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
         cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()
         cfg.skinport_insecure = _get_bool("SKINPORT_INSECURE", False)
+        cfg.avg_enabled = _get_bool("AVG_ENABLED", True)
         cfg.pricempire_enabled = _get_bool("PRICEMPIRE_ENABLED", True)
         cfg.pricempire_api_key = os.getenv("PRICEMPIRE_API_KEY", "").strip()
         cfg._load_overrides()

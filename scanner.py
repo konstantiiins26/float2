@@ -12,6 +12,7 @@ import aiohttp
 from analysis.arbitrage import Opportunity, evaluate
 from analysis.stability import analyze as analyze_stability
 from config import Config
+from sources.aggregate import AggregateClient
 from sources.buff163 import BuffClient
 from sources.csfloat import CsFloatClient
 from sources.market_csgo import MarketCsgoClient
@@ -38,6 +39,7 @@ class Scanner:
             insecure=cfg.skinport_insecure,
         )
         self.buff = BuffClient(session, usd_rate=cfg.usd_rate)
+        self.aggregate = AggregateClient(session, usd_rate=cfg.usd_rate)
         self.pricempire = PricempireClient(
             session, api_key=cfg.pricempire_api_key, currency=cfg.currency
         )
@@ -100,6 +102,8 @@ class Scanner:
 
         if self.cfg.buff_enabled:
             await self.buff.ensure_loaded()
+        if self.cfg.avg_enabled:
+            await self.aggregate.ensure_loaded()
         if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
             await self.pricempire.ensure_loaded()
 
@@ -120,18 +124,23 @@ class Scanner:
             if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
                 opp.pricempire_avg = await self.pricempire.get_avg(listing.market_hash_name)
 
-            # Средняя по площадкам, что бот и так видит (без ключей):
-            # Buff (лоты) + market.csgo + оценка CSFloat
-            src_prices = []
-            if opp.buff_start:
-                src_prices.append(opp.buff_start)
-            if opp.market:
-                src_prices.append(opp.market.price)
-            if listing.predicted_price and listing.predicted_price > 0:
-                src_prices.append(listing.predicted_price)
-            if src_prices:
-                opp.market_avg = round(sum(src_prices) / len(src_prices), 2)
-                opp.market_avg_count = len(src_prices)
+            # Средняя по многим площадкам (агрегатор, без ключей)
+            if self.cfg.avg_enabled:
+                agg = await self.aggregate.get_avg(listing.market_hash_name)
+                if agg:
+                    opp.market_avg, opp.market_avg_count = agg
+            # Запасной вариант, если предмета нет в агрегаторе — по тому, что видим
+            if opp.market_avg is None:
+                src_prices = []
+                if opp.buff_start:
+                    src_prices.append(opp.buff_start)
+                if opp.market:
+                    src_prices.append(opp.market.price)
+                if listing.predicted_price and listing.predicted_price > 0:
+                    src_prices.append(listing.predicted_price)
+                if src_prices:
+                    opp.market_avg = round(sum(src_prices) / len(src_prices), 2)
+                    opp.market_avg_count = len(src_prices)
 
             opportunities.append(opp)
 
