@@ -142,6 +142,15 @@ def format_opportunity(o: Opportunity) -> str:
             bits.append(f"ордер {s}{o.buff_order:.2f}")
         lines.append("🅱️ <b>Buff163</b> (за весь износ): " + " · ".join(bits))
 
+    # Средняя цена скина по многим площадкам (Pricempire)
+    if o.pricempire_avg:
+        pe_line = f"💹 <b>Средняя цена (Pricempire):</b> {s}{o.pricempire_avg:.2f}"
+        if o.pricempire_avg > 0:
+            pe_pct = round(o.buy_price / o.pricempire_avg * 100.0)
+            mark = "🟢" if pe_pct <= 90 else ("🟡" if pe_pct <= 100 else "🔴")
+            pe_line += f" · {mark} куплено за {pe_pct}% от средней"
+        lines.append(pe_line)
+
         # Продать на CSFloat по цене Buff (за конкретный флоат) + профит
         est = o.buff_float_estimate
         br = o.buff_route

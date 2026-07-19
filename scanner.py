@@ -15,6 +15,7 @@ from config import Config
 from sources.buff163 import BuffClient
 from sources.csfloat import CsFloatClient
 from sources.market_csgo import MarketCsgoClient
+from sources.pricempire import PricempireClient
 from sources.skinport import SkinportClient
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ class Scanner:
             insecure=cfg.skinport_insecure,
         )
         self.buff = BuffClient(session, usd_rate=cfg.usd_rate)
+        self.pricempire = PricempireClient(
+            session, api_key=cfg.pricempire_api_key, currency=cfg.currency
+        )
         self._seen: set[str] = self._load_seen()
         self.last_error: str | None = None
 
@@ -96,6 +100,8 @@ class Scanner:
 
         if self.cfg.buff_enabled:
             await self.buff.ensure_loaded()
+        if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
+            await self.pricempire.ensure_loaded()
 
         opportunities: list[Opportunity] = []
         for listing in listings:
@@ -109,8 +115,11 @@ class Scanner:
                     buff_base = buff.starting_at
                     buff_order = buff.highest_order
             opp = evaluate(listing, market_price, self.cfg, buff_base, buff_order)
-            if opp:
-                opportunities.append(opp)
+            if not opp:
+                continue
+            if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
+                opp.pricempire_avg = await self.pricempire.get_avg(listing.market_hash_name)
+            opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
         return opportunities

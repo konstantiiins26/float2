@@ -119,6 +119,10 @@ class Config:
     skinport_api_key: str = ""
     skinport_insecure: bool = False
 
+    # Pricempire — средняя (агрегированная) цена скина. Нужен API-ключ.
+    pricempire_enabled: bool = True
+    pricempire_api_key: str = ""
+
     # Дополнительно сканировать CSFloat по «скидке к рынку» (лучшие сделки)
     scan_deals: bool = True
 
@@ -175,6 +179,8 @@ class Config:
         cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
         cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()
         cfg.skinport_insecure = _get_bool("SKINPORT_INSECURE", False)
+        cfg.pricempire_enabled = _get_bool("PRICEMPIRE_ENABLED", True)
+        cfg.pricempire_api_key = os.getenv("PRICEMPIRE_API_KEY", "").strip()
         cfg._load_overrides()
         return cfg
 

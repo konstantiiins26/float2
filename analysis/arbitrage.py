@@ -58,6 +58,7 @@ class Opportunity:
     buff_order: Optional[float] = None   # Buff163: цена ордера (быстрая продажа)
     buff_fee: float = 0.025              # комиссия Buff163
     buff_float_estimate: Optional[float] = None  # оценка цены Buff за твой флоат
+    pricempire_avg: Optional[float] = None       # средняя цена скина (Pricempire)
 
     @property
     def best(self) -> ResaleRoute:
