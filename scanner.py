@@ -118,30 +118,36 @@ class Scanner:
                 if buff:
                     buff_base = buff.starting_at
                     buff_order = buff.highest_order
-            opp = evaluate(listing, market_price, self.cfg, buff_base, buff_order)
-            if not opp:
-                continue
+            # Средняя цена по всем площадкам — считаем ДО оценки, чтобы учесть
+            # главный путь «продать по средней рынка».
+            avg_price: float | None = None
+            avg_count = 0
+            pricempire_avg = None
             if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
-                opp.pricempire_avg = await self.pricempire.get_avg(listing.market_hash_name)
-
-            # Средняя по многим площадкам (агрегатор, без ключей)
-            if self.cfg.avg_enabled:
+                pricempire_avg = await self.pricempire.get_avg(listing.market_hash_name)
+            if pricempire_avg:
+                avg_price, avg_count = pricempire_avg, 30
+            elif self.cfg.avg_enabled:
                 agg = await self.aggregate.get_avg(listing.market_hash_name)
                 if agg:
-                    opp.market_avg, opp.market_avg_count = agg
-            # Запасной вариант, если предмета нет в агрегаторе — по тому, что видим
-            if opp.market_avg is None:
-                src_prices = []
-                if opp.buff_start:
-                    src_prices.append(opp.buff_start)
-                if opp.market:
-                    src_prices.append(opp.market.price)
-                if listing.predicted_price and listing.predicted_price > 0:
-                    src_prices.append(listing.predicted_price)
+                    avg_price, avg_count = agg
+            # Запас: если предмета нет в агрегаторе — по тому, что видим
+            if avg_price is None:
+                src_prices = [p for p in (
+                    buff_base,
+                    market_price.price if market_price else None,
+                    listing.predicted_price if listing.predicted_price > 0 else None,
+                ) if p]
                 if src_prices:
-                    opp.market_avg = round(sum(src_prices) / len(src_prices), 2)
-                    opp.market_avg_count = len(src_prices)
+                    avg_price = round(sum(src_prices) / len(src_prices), 2)
+                    avg_count = len(src_prices)
 
+            opp = evaluate(
+                listing, market_price, self.cfg, buff_base, buff_order, avg_price, avg_count
+            )
+            if not opp:
+                continue
+            opp.pricempire_avg = pricempire_avg
             opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)

@@ -110,14 +110,17 @@ class Config:
     # Площадки покупки (можно включать/выключать в меню «Источники»)
     csfloat_enabled: bool = True
 
-    # Использовать market.csgo как площадку продажи/сравнения. Если выключить —
-    # хорошие офферы считаются только по CSFloat (покупка и продажа на CSFloat).
-    market_enabled: bool = True
+    # market.csgo как площадка продажи/сравнения. По умолчанию ВЫКЛ —
+    # профит считается по средней цене всех площадок.
+    market_enabled: bool = False
 
-    # Skinport (публичный API, ключ не нужен)
-    skinport_enabled: bool = True
+    # Skinport (публичный API). По умолчанию ВЫКЛ.
+    skinport_enabled: bool = False
     skinport_api_key: str = ""
     skinport_insecure: bool = False
+
+    # Комиссия при продаже по «средней цене рынка» (для расчёта профита)
+    avg_fee: float = 0.05
 
     # Средняя цена по многим площадкам (агрегатор csgotrader, без ключа)
     avg_enabled: bool = True
@@ -173,13 +176,14 @@ class Config:
         cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
         cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
         cfg.csfloat_enabled = _get_bool("CSFLOAT_ENABLED", True)
-        cfg.market_enabled = _get_bool("MARKET_CSGO_ENABLED", True)
+        cfg.market_enabled = _get_bool("MARKET_CSGO_ENABLED", False)
+        cfg.avg_fee = _get_float("AVG_FEE", 0.05)
         cfg.buff_enabled = _get_bool("BUFF_ENABLED", True)
         cfg.buff_fee = _get_float("BUFF_FEE", 0.025)
         cfg.buff_float_sensitivity = _get_float("BUFF_FLOAT_SENSITIVITY", 0.15)
         cfg.buff_resale = _get_bool("BUFF_RESALE", True)
         cfg.scan_deals = _get_bool("SCAN_DEALS", True)
-        cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", True)
+        cfg.skinport_enabled = _get_bool("SKINPORT_ENABLED", False)
         cfg.skinport_api_key = os.getenv("SKINPORT_API_KEY", "").strip()
         cfg.skinport_insecure = _get_bool("SKINPORT_INSECURE", False)
         cfg.avg_enabled = _get_bool("AVG_ENABLED", True)

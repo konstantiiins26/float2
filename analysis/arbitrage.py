@@ -12,7 +12,7 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from analysis.liquidity import (
@@ -82,9 +82,11 @@ class Opportunity:
             return round(self.buff_float_estimate * (1.0 - self.buff_fee), 2)
         return None
 
+    appraiser_route: Optional[ResaleRoute] = field(default=None)
+
     @property
     def csfloat_route(self) -> Optional[ResaleRoute]:
-        return next((r for r in self.routes if r.venue == "CSFloat"), None)
+        return self.appraiser_route
 
     @property
     def market_route(self) -> Optional[ResaleRoute]:
@@ -93,6 +95,10 @@ class Opportunity:
     @property
     def buff_route(self) -> Optional[ResaleRoute]:
         return next((r for r in self.routes if r.venue == "CSFloat по Buff"), None)
+
+    @property
+    def avg_route(self) -> Optional[ResaleRoute]:
+        return next((r for r in self.routes if r.venue == "средней рынка"), None)
 
 
 def _route(venue: str, buy_price: float, gross: float, fee: float) -> Optional[ResaleRoute]:
@@ -116,12 +122,15 @@ def evaluate(
     cfg: Config,
     buff_base: Optional[float] = None,
     buff_order: Optional[float] = None,
+    avg_price: Optional[float] = None,
+    avg_count: int = 0,
 ) -> Optional[Opportunity]:
     """Оценивает один листинг. Возвращает Opportunity, если сделка проходит
     все фильтры, иначе None.
 
-    buff_base — цена Buff163 за износ (лоты); из неё считаем оценку за конкретный
-    флоат и путь «купить на CSFloat дёшево → продать на CSFloat по цене Buff».
+    buff_base — цена Buff163 за износ (лоты).
+    avg_price — средняя цена по всем площадкам; из неё считаем главный путь
+    «продать по средней рынка».
     """
     buy = listing.buy_price
     if buy <= 0:
@@ -172,13 +181,13 @@ def evaluate(
     if not liquid and not is_rank_find:
         return None
 
-    # Пути перепродажи
-    routes: list[ResaleRoute] = []
-    r_csfloat = _route(
+    # Оценка CSFloat Appraiser — ТОЛЬКО справочно, в лучший путь не идёт
+    appraiser_route = _route(
         "CSFloat", buy, listing.predicted_price, cfg.csfloat_fee
     )
-    if r_csfloat:
-        routes.append(r_csfloat)
+
+    # Реальные пути перепродажи (по ним считается лучший путь и пороги)
+    routes: list[ResaleRoute] = []
     if market_on:
         r_market = _route(
             "market.csgo", buy, market.price, cfg.market_csgo_fee
@@ -194,6 +203,12 @@ def evaluate(
         r_buff = _route("CSFloat по Buff", buy, buff_float_estimate, cfg.csfloat_fee)
         if r_buff:
             routes.append(r_buff)
+
+    # Главный путь — продать по средней цене всех площадок
+    if avg_price and avg_price > 0:
+        r_avg = _route("средней рынка", buy, avg_price, cfg.avg_fee)
+        if r_avg:
+            routes.append(r_avg)
 
     if not routes:
         if is_rank_find:
@@ -234,4 +249,7 @@ def evaluate(
         buff_start=buff_base,
         buff_order=buff_order,
         buff_float_estimate=buff_float_estimate,
+        market_avg=avg_price,
+        market_avg_count=avg_count,
+        appraiser_route=appraiser_route,
     )
