@@ -95,16 +95,32 @@ class AggregateClient:
             logger.warning("Неожиданный формат агрегатора цен")
             return
 
+        # ДИАГНОСТИКА: покажем реальную структуру одного предмета
+        sample = next(iter(payload.items()), None)
+        if sample:
+            name, srcs = sample
+            if isinstance(srcs, dict):
+                logger.info("АГРЕГАТОР [%s] источники: %s", name, list(srcs.keys()))
+                one = next(iter(srcs.items()), None)
+                if one:
+                    logger.info("АГРЕГАТОР пример источника %s = %r", one[0], one[1])
+
         r = self._usd_rate
         cache: dict[str, tuple[float, int]] = {}
+        counts: list[int] = []
         for name, sources in payload.items():
             prices = _item_prices(sources)
             if len(prices) >= 2:  # нужна хотя бы пара площадок для «средней»
                 cache[name] = (round(statistics.median(prices) * r, 2), len(prices))
+                counts.append(len(prices))
         if cache:
             self._cache = cache
             self._cache_ts = time.time()
-            logger.info("Средние цены по площадкам обновлены: %d предметов", len(cache))
+            avg_c = sum(counts) / len(counts)
+            logger.info(
+                "Средние цены обновлены: %d предметов, в среднем %.1f площадок/предмет",
+                len(cache), avg_c,
+            )
 
     async def get_avg(self, market_hash_name: str) -> Optional[tuple[float, int]]:
         """Возвращает (средняя_цена, сколько_площадок) или None."""

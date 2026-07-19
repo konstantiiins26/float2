@@ -78,8 +78,13 @@ class PricempireClient:
             return
 
         if not isinstance(payload, dict):
-            logger.warning("Неожиданный формат ответа Pricempire")
+            logger.warning("Неожиданный формат ответа Pricempire: %r", type(payload))
             return
+
+        # ДИАГНОСТИКА: структура одного предмета
+        sample = next(iter(payload.items()), None)
+        if sample:
+            logger.info("PRICEMPIRE [%s] = %r", sample[0], sample[1])
 
         cache: dict[str, float] = {}
         for name, sources in payload.items():
