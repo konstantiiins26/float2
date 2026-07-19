@@ -142,14 +142,16 @@ def format_opportunity(o: Opportunity) -> str:
             bits.append(f"ордер {s}{o.buff_order:.2f}")
         lines.append("🅱️ <b>Buff163</b> (за весь износ): " + " · ".join(bits))
 
-    # Средняя цена скина по многим площадкам (Pricempire)
-    if o.pricempire_avg:
-        pe_line = f"💹 <b>Средняя цена (Pricempire):</b> {s}{o.pricempire_avg:.2f}"
-        if o.pricempire_avg > 0:
-            pe_pct = round(o.buy_price / o.pricempire_avg * 100.0)
-            mark = "🟢" if pe_pct <= 90 else ("🟡" if pe_pct <= 100 else "🔴")
-            pe_line += f" · {mark} куплено за {pe_pct}% от средней"
-        lines.append(pe_line)
+    # Средняя цена скина по площадкам. Pricempire (по ключу) точнее; если ключа
+    # нет — считаем среднюю из площадок, что бот и так видит.
+    avg = o.pricempire_avg or o.market_avg
+    avg_label = "Pricempire" if o.pricempire_avg else f"по {o.market_avg_count} площадкам"
+    if avg and avg > 0:
+        avg_line = f"💹 <b>Средняя цена ({avg_label}):</b> {s}{avg:.2f}"
+        pe_pct = round(o.buy_price / avg * 100.0)
+        mark = "🟢" if pe_pct <= 90 else ("🟡" if pe_pct <= 100 else "🔴")
+        avg_line += f" · {mark} куплено за {pe_pct}% от средней"
+        lines.append(avg_line)
 
         # Продать на CSFloat по цене Buff (за конкретный флоат) + профит
         est = o.buff_float_estimate

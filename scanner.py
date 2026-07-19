@@ -119,6 +119,20 @@ class Scanner:
                 continue
             if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
                 opp.pricempire_avg = await self.pricempire.get_avg(listing.market_hash_name)
+
+            # Средняя по площадкам, что бот и так видит (без ключей):
+            # Buff (лоты) + market.csgo + оценка CSFloat
+            src_prices = []
+            if opp.buff_start:
+                src_prices.append(opp.buff_start)
+            if opp.market:
+                src_prices.append(opp.market.price)
+            if listing.predicted_price and listing.predicted_price > 0:
+                src_prices.append(listing.predicted_price)
+            if src_prices:
+                opp.market_avg = round(sum(src_prices) / len(src_prices), 2)
+                opp.market_avg_count = len(src_prices)
+
             opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
