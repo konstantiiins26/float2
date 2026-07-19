@@ -56,11 +56,17 @@ def _extract_one(node: Any) -> Optional[float]:
     return None
 
 
+# Steam исключаем из средней: цена завышена (комиссия 15%) — это выброс
+_EXCLUDED = {"steam", "steam_listing", "steam_volume"}
+
+
 def _item_prices(sources: Any) -> list[float]:
     prices: list[float] = []
     if not isinstance(sources, dict):
         return prices
-    for node in sources.values():
+    for key, node in sources.items():
+        if str(key).lower() in _EXCLUDED:
+            continue
         v = _extract_one(node)
         if v:
             prices.append(v)

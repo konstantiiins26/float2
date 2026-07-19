@@ -63,9 +63,15 @@ class PricempireClient:
         if not self._api_key:
             return
         params = {"api_key": self._api_key, "currency": self._currency}
+        # Пробуем и заголовки авторизации — вдруг ключ ждут там, а не в параметре
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "X-API-Key": self._api_key,
+        }
         try:
             async with self._session.get(
-                PRICES_URL, params=params, timeout=aiohttp.ClientTimeout(total=40)
+                PRICES_URL, params=params, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=40),
             ) as resp:
                 if resp.status != 200:
                     logger.warning("Pricempire вернул %s", resp.status)
