@@ -74,8 +74,16 @@ class PricempireClient:
                 timeout=aiohttp.ClientTimeout(total=40),
             ) as resp:
                 if resp.status != 200:
-                    logger.warning("Pricempire вернул %s", resp.status)
-                    self._cooldown_until = time.time() + 120
+                    # 401/403 = нет платного доступа; не долбим — пауза на сутки
+                    if resp.status in (401, 403):
+                        logger.warning(
+                            "Pricempire %s — нет доступа к API (нужен платный план). "
+                            "Отключаю попытки.", resp.status,
+                        )
+                        self._cooldown_until = time.time() + 86400
+                    else:
+                        logger.warning("Pricempire вернул %s", resp.status)
+                        self._cooldown_until = time.time() + 120
                     return
                 payload = await resp.json(content_type=None)
         except (aiohttp.ClientError, TimeoutError, ValueError) as exc:

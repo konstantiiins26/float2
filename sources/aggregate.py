@@ -97,17 +97,17 @@ class AggregateClient:
             ) as resp:
                 if resp.status != 200:
                     logger.warning("Агрегатор цен вернул %s", resp.status)
-                    self._cooldown_until = time.time() + 300
+                    self._cooldown_until = time.time() + 3600
                     return
                 text = await resp.text()
             if not text.strip():
                 logger.warning("Агрегатор: пустой ответ (0 байт) — CDN/сжатие")
-                self._cooldown_until = time.time() + 300
+                self._cooldown_until = time.time() + 3600
                 return
             payload = json.loads(text)
         except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
             logger.warning("Ошибка загрузки агрегатора цен: %s", exc)
-            self._cooldown_until = time.time() + 300
+            self._cooldown_until = time.time() + 3600
             return
 
         if not isinstance(payload, dict):
