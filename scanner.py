@@ -134,17 +134,18 @@ class Scanner:
         return opportunities
 
     async def _market_average(self, listing, market_price, buff_base):
-        """Средняя цена по всем доступным площадкам: Buff + market.csgo +
-        CSFloat + Skinport (+ агрегатор/Pricempire, если работают)."""
+        """Средняя рыночная цена по надёжным площадкам: Buff + CSFloat + Skinport.
+        market.csgo и Steam НЕ берём — их цены завышены (выбросы, ломают среднюю).
+
+        (market_price оставлен в сигнатуре для совместимости, но в среднюю не идёт.)
+        """
         name = listing.market_hash_name
         prices: list[float] = []
-        if buff_base:
+        if buff_base:                                   # Buff163 — главный ориентир
             prices.append(buff_base)
-        if market_price:
-            prices.append(market_price.price)
-        if listing.predicted_price and listing.predicted_price > 0:
+        if listing.predicted_price and listing.predicted_price > 0:  # оценка CSFloat
             prices.append(listing.predicted_price)
-        sp = await self.skinport.get_price(name)
+        sp = await self.skinport.get_price(name)        # Skinport
         if sp:
             prices.append(sp)
 
