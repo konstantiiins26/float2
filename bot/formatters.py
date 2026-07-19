@@ -142,7 +142,8 @@ def format_opportunity(o: Opportunity) -> str:
             bits.append(f"ордер {s}{o.buff_order:.2f}")
         lines.append("🅱️ <b>Buff163</b> (за весь износ): " + " · ".join(bits))
 
-    # Средняя цена скина по площадкам + профит от продажи по ней (главный путь)
+    # ГЛАВНОЕ: средняя цена по всем площадкам + профит «купил на CSFloat →
+    # продал на CSFloat по средней».
     avg = o.market_avg
     avg_label = "Pricempire" if o.pricempire_avg else f"по {o.market_avg_count} площадкам"
     if avg and avg > 0:
@@ -151,34 +152,13 @@ def format_opportunity(o: Opportunity) -> str:
         if ar:
             emoji = "🟢" if ar.profit_abs > 0 else "🔴"
             avg_line += (
-                f" → продать → на руки {s}{ar.net_price:.2f} "
+                f" → продать на CSFloat → на руки {s}{ar.net_price:.2f} "
                 f"({emoji}<b>{ar.profit_abs:+.2f}{s} / {ar.profit_pct:+.1f}%</b>)"
             )
         lines.append(avg_line)
         pe_pct = round(o.buy_price / avg * 100.0)
         mark = "🟢" if pe_pct <= 90 else ("🟡" if pe_pct <= 100 else "🔴")
         lines.append(f"   {mark} куплено за <b>{pe_pct}%</b> от средней рынка")
-
-        # Продать на CSFloat по цене Buff (за конкретный флоат) + профит
-        est = o.buff_float_estimate
-        br = o.buff_route
-        if est:
-            float_str2 = (
-                f"{l.float_value:.4f}".rstrip("0").rstrip(".")
-                if l.float_value is not None else "—"
-            )
-            line = f"🎯 Продать на CSFloat по Buff (флоат {float_str2}): <b>{s}{est:.2f}</b>"
-            if br:
-                emoji = "🟢" if br.profit_abs > 0 else "🔴"
-                line += (
-                    f" → на руки {s}{br.net_price:.2f} "
-                    f"({emoji}<b>{br.profit_abs:+.2f}{s} / {br.profit_pct:+.1f}%</b>)"
-                )
-            lines.append(line)
-            pct = o.buff_pct
-            if pct is not None:
-                mark = "🟢" if pct <= 90 else ("🟡" if pct <= 100 else "🔴")
-                lines.append(f"   {mark} куплено за <b>{pct:.0f}%</b> от цены Buff")
 
     lines += [
         "",

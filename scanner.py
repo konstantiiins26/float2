@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import statistics
 from pathlib import Path
 
 import aiohttp
@@ -118,40 +119,48 @@ class Scanner:
                 if buff:
                     buff_base = buff.starting_at
                     buff_order = buff.highest_order
-            # Средняя цена по всем площадкам — считаем ДО оценки, чтобы учесть
-            # главный путь «продать по средней рынка».
-            avg_price: float | None = None
-            avg_count = 0
-            pricempire_avg = None
-            if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
-                pricempire_avg = await self.pricempire.get_avg(listing.market_hash_name)
-            if pricempire_avg:
-                avg_price, avg_count = pricempire_avg, 30
-            elif self.cfg.avg_enabled:
-                agg = await self.aggregate.get_avg(listing.market_hash_name)
-                if agg:
-                    avg_price, avg_count = agg
-            # Запас: если предмета нет в агрегаторе — по тому, что видим
-            if avg_price is None:
-                src_prices = [p for p in (
-                    buff_base,
-                    market_price.price if market_price else None,
-                    listing.predicted_price if listing.predicted_price > 0 else None,
-                ) if p]
-                if src_prices:
-                    avg_price = round(sum(src_prices) / len(src_prices), 2)
-                    avg_count = len(src_prices)
+            # Средняя цена по ВСЕМ доступным площадкам (считаем до оценки —
+            # главный путь «продать на CSFloat по средней»).
+            avg_price, avg_count = await self._market_average(listing, market_price, buff_base)
 
             opp = evaluate(
                 listing, market_price, self.cfg, buff_base, buff_order, avg_price, avg_count
             )
             if not opp:
                 continue
-            opp.pricempire_avg = pricempire_avg
             opportunities.append(opp)
 
         opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
         return opportunities
+
+    async def _market_average(self, listing, market_price, buff_base):
+        """Средняя цена по всем доступным площадкам: Buff + market.csgo +
+        CSFloat + Skinport (+ агрегатор/Pricempire, если работают)."""
+        name = listing.market_hash_name
+        prices: list[float] = []
+        if buff_base:
+            prices.append(buff_base)
+        if market_price:
+            prices.append(market_price.price)
+        if listing.predicted_price and listing.predicted_price > 0:
+            prices.append(listing.predicted_price)
+        sp = await self.skinport.get_price(name)
+        if sp:
+            prices.append(sp)
+
+        avg_price = round(statistics.median(prices), 2) if prices else None
+        avg_count = len(prices)
+
+        # Если агрегатор/Pricempire всё же отдают больше площадок — берём их
+        if self.cfg.pricempire_enabled and self.cfg.pricempire_api_key:
+            pe = await self.pricempire.get_avg(name)
+            if pe:
+                return pe, 30
+        if self.cfg.avg_enabled:
+            agg = await self.aggregate.get_avg(name)
+            if agg and agg[1] > avg_count:
+                return agg
+        return avg_price, avg_count
 
     async def enrich_stability(self, opp: Opportunity) -> None:
         """Дополняет оффер анализом стабильности цены по истории продаж.

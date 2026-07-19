@@ -93,12 +93,8 @@ class Opportunity:
         return next((r for r in self.routes if r.venue == "market.csgo"), None)
 
     @property
-    def buff_route(self) -> Optional[ResaleRoute]:
-        return next((r for r in self.routes if r.venue == "CSFloat по Buff"), None)
-
-    @property
     def avg_route(self) -> Optional[ResaleRoute]:
-        return next((r for r in self.routes if r.venue == "средней рынка"), None)
+        return next((r for r in self.routes if r.venue == "CSFloat по средней"), None)
 
 
 def _route(venue: str, buy_price: float, gross: float, fee: float) -> Optional[ResaleRoute]:
@@ -200,18 +196,14 @@ def evaluate(
         if r_market:
             routes.append(r_market)
 
-    # Путь «продать на CSFloat по цене Buff» (оценка Buff за конкретный флоат)
+    # Оценка Buff за конкретный флоат — оставляем только для показа
     buff_float_estimate = estimate_for_float(
         buff_base, listing.float_value, listing.wear_name, cfg.buff_float_sensitivity
     ) if buff_base else None
-    if cfg.buff_resale and buff_float_estimate:
-        r_buff = _route("CSFloat по Buff", buy, buff_float_estimate, cfg.csfloat_fee)
-        if r_buff:
-            routes.append(r_buff)
 
-    # Главный путь — продать по средней цене всех площадок
+    # Главный путь — купить на CSFloat, продать на CSFloat по средней цене площадок
     if avg_price and avg_price > 0:
-        r_avg = _route("средней рынка", buy, avg_price, cfg.avg_fee)
+        r_avg = _route("CSFloat по средней", buy, avg_price, cfg.csfloat_fee)
         if r_avg:
             routes.append(r_avg)
 

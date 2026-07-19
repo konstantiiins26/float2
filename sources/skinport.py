@@ -68,6 +68,7 @@ class SkinportClient:
         self._insecure = insecure  # отключить проверку SSL (крайний случай)
         self._cache_ttl = cache_ttl
         self._cache: list[CsFloatListing] = []
+        self._prices: dict[str, float] = {}  # name -> min_price (для средней)
         self._cache_ts: float = 0.0
         self._cooldown_until: float = 0.0  # после ошибки не долбим каждый скан
 
@@ -106,6 +107,13 @@ class SkinportClient:
         listings = [i for i in (_parse_item(r) for r in payload if isinstance(r, dict)) if i]
         if listings:
             self._cache = listings
+            self._prices = {l.market_hash_name: l.buy_price for l in listings}
             self._cache_ts = time.time()
             logger.info("Каталог Skinport обновлён: %d предметов", len(listings))
         return self._cache
+
+    async def get_price(self, market_hash_name: str) -> Optional[float]:
+        """Цена Skinport (мин. лот) по названию — для расчёта средней."""
+        if not self._prices and time.time() >= self._cooldown_until:
+            await self.get_listings()
+        return self._prices.get(market_hash_name)
