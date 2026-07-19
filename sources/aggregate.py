@@ -9,6 +9,7 @@ Waxpeer, BitSkins, LootFarm, CS.Deals, SwapGG и др. По каждому пр�
 """
 from __future__ import annotations
 
+import json
 import logging
 import statistics
 import time
@@ -19,6 +20,13 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 PRICES_URL = "https://prices.csgotrader.app/latest/prices_v6.json"
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+}
 
 # Ключи, по которым в разных источниках лежит цена (пробуем по очереди)
 _PRICE_KEYS = (
@@ -79,13 +87,18 @@ class AggregateClient:
     async def _refresh(self) -> None:
         try:
             async with self._session.get(
-                PRICES_URL, timeout=aiohttp.ClientTimeout(total=60)
+                PRICES_URL, headers=_HEADERS, timeout=aiohttp.ClientTimeout(total=120)
             ) as resp:
                 if resp.status != 200:
                     logger.warning("Агрегатор цен вернул %s", resp.status)
                     self._cooldown_until = time.time() + 300
                     return
-                payload = await resp.json(content_type=None)
+                text = await resp.text()
+            if not text.strip():
+                logger.warning("Агрегатор: пустой ответ (0 байт) — CDN/сжатие")
+                self._cooldown_until = time.time() + 300
+                return
+            payload = json.loads(text)
         except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
             logger.warning("Ошибка загрузки агрегатора цен: %s", exc)
             self._cooldown_until = time.time() + 300
