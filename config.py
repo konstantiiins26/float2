@@ -51,6 +51,7 @@ SETTABLE: dict[str, tuple[type, float, float | None, str]] = {
     "min_csfloat_quantity": (float, 0, None, "мин. листингов CSFloat"),
     "float_edge_margin": (float, 0, 0.5, "отступ флоата от границы износа"),
     "float_rank_alert": (int, 0, 1000, "топ по флоату (0=выкл)"),
+    "min_avg_platforms": (int, 0, 50, "мин. площадок для средней (0=выкл)"),
     "scan_interval": (int, 10, 86400, "интервал авто-скана, сек"),
     "csfloat_fee": (float, 0, 1, "комиссия CSFloat (доля)"),
     "market_csgo_fee": (float, 0, 1, "комиссия market.csgo (доля)"),
@@ -100,6 +101,10 @@ class Config:
     # Показывать топ-скины по флоату из базы CSFloat (место <= значения).
     # Например 5 = ловить предметы в топ-5 по низкому/высокому флоату. 0 = выкл.
     float_rank_alert: int = 5
+
+    # Мин. кол-во площадок, по которым посчитана средняя. Отсекает «неустоявшиеся»
+    # скины (мало где торгуются = цена гуляет). 0 = выключить фильтр.
+    min_avg_platforms: int = 0
 
     # Проверять актуальность лота (куплен/нет) перед отправкой оффера
     check_live_status: bool = True
@@ -173,6 +178,7 @@ class Config:
         cfg.exclude_souvenir = _get_bool("EXCLUDE_SOUVENIR", True)
         cfg.weapons_only = _get_bool("WEAPONS_ONLY", True)
         cfg.float_rank_alert = _get_int("FLOAT_RANK_ALERT", 5)
+        cfg.min_avg_platforms = _get_int("MIN_AVG_PLATFORMS", 0)
         cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
         cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
         cfg.csfloat_enabled = _get_bool("CSFLOAT_ENABLED", True)

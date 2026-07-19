@@ -147,6 +147,11 @@ def evaluate(
     rank = listing.float_rank
     is_rank_find = bool(cfg.float_rank_alert and rank and rank <= cfg.float_rank_alert)
 
+    # Отсекаем «неустоявшиеся» скины: мало где торгуются = средняя по малому
+    # числу площадок = цена ненадёжна. Топ-по-флоату пропускаем мимо фильтра.
+    if not is_rank_find and cfg.min_avg_platforms and avg_count < cfg.min_avg_platforms:
+        return None
+
     # Ценовой диапазон покупки
     if cfg.min_buy_price and buy < cfg.min_buy_price:
         return None

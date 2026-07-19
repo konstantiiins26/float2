@@ -53,6 +53,7 @@ FILTER_ADJUST = [
     ("min_buy_price", "Мин. цена €", 1),
     ("max_buy_price", "Макс. цена € (0=∞)", 5),
     ("float_rank_alert", "Топ по флоату (0=выкл)", 1),
+    ("min_avg_platforms", "Мин. площадок (0=выкл)", 1),
 ]
 
 HELP_TEXT = (
