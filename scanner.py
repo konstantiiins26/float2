@@ -145,9 +145,12 @@ class Scanner:
             prices.append(buff_base)
         if listing.predicted_price and listing.predicted_price > 0:  # оценка CSFloat
             prices.append(listing.predicted_price)
-        sp = await self.skinport.get_price(name)        # Skinport
-        if sp:
-            prices.append(sp)
+        try:                                            # Skinport (не падаем при сбое)
+            sp = await self.skinport.get_price(name)
+            if sp:
+                prices.append(sp)
+        except Exception:  # noqa: BLE001
+            pass
 
         avg_price = round(statistics.median(prices), 2) if prices else None
         avg_count = len(prices)
