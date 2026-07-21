@@ -130,7 +130,7 @@ class Scanner:
                 continue
             opportunities.append(opp)
 
-        opportunities.sort(key=lambda o: o.best.profit_abs, reverse=True)
+        opportunities.sort(key=lambda o: o.best.profit_pct, reverse=True)
         return opportunities
 
     async def _market_average(self, listing, market_price, buff_base):

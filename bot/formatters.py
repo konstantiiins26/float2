@@ -122,15 +122,14 @@ def format_opportunity(o: Opportunity) -> str:
             f"(<b>{mr.profit_abs:+.2f}{s} / {mr.profit_pct:+.1f}%</b>)"
         )
 
-    # CSFloat Appraiser (оценка) — справочно, для глаза
+    # CSFloat Appraiser (оценка CSFloat)
     cr = o.csfloat_route
     if cr:
         emoji = "🟢" if cr.profit_abs > 0 else "🔴"
         lines.append(
-            f"{emoji} CSFloat Appraiser (оценка): {s}{cr.gross_price:.2f} "
+            f"{emoji} CSFloat Appraiser: {s}{cr.gross_price:.2f} "
             f"→ на руки {s}{cr.net_price:.2f} "
-            f"(<b>{cr.profit_abs:+.2f}{s} / {cr.profit_pct:+.1f}%</b>) "
-            f"<i>— справочно</i>"
+            f"(<b>{cr.profit_abs:+.2f}{s} / {cr.profit_pct:+.1f}%</b>)"
         )
 
     # Ориентир Buff163 (эталон рыночной цены, как показывает BetterFloat)

@@ -86,7 +86,7 @@ class Opportunity:
 
     @property
     def csfloat_route(self) -> Optional[ResaleRoute]:
-        return self.appraiser_route
+        return next((r for r in self.routes if r.venue == "CSFloat Appraiser"), None)
 
     @property
     def market_route(self) -> Optional[ResaleRoute]:
@@ -182,30 +182,30 @@ def evaluate(
     if not liquid and not is_rank_find:
         return None
 
-    # Оценка CSFloat Appraiser — ТОЛЬКО справочно, в лучший путь не идёт
-    appraiser_route = _route(
-        "CSFloat", buy, listing.predicted_price, cfg.csfloat_fee
-    )
-
-    # Реальные пути перепродажи (по ним считается лучший путь и пороги)
+    # Все пути перепродажи участвуют в «лучшем пути» (топ по проценту):
     routes: list[ResaleRoute] = []
+
+    # 1) Продать на CSFloat по оценке Appraiser
+    appraiser_route = _route("CSFloat Appraiser", buy, listing.predicted_price, cfg.csfloat_fee)
+    if appraiser_route:
+        routes.append(appraiser_route)
+
+    # 2) Продать на market.csgo (цена там высокая = может быть хороший %)
     if market_on:
-        r_market = _route(
-            "market.csgo", buy, market.price, cfg.market_csgo_fee
-        )
+        r_market = _route("market.csgo", buy, market.price, cfg.market_csgo_fee)
         if r_market:
             routes.append(r_market)
 
-    # Оценка Buff за конкретный флоат — оставляем только для показа
-    buff_float_estimate = estimate_for_float(
-        buff_base, listing.float_value, listing.wear_name, cfg.buff_float_sensitivity
-    ) if buff_base else None
-
-    # Главный путь — купить на CSFloat, продать на CSFloat по средней цене площадок
+    # 3) Продать на CSFloat по средней цене площадок
     if avg_price and avg_price > 0:
         r_avg = _route("CSFloat по средней", buy, avg_price, cfg.csfloat_fee)
         if r_avg:
             routes.append(r_avg)
+
+    # Оценка Buff за конкретный флоат — только для показа
+    buff_float_estimate = estimate_for_float(
+        buff_base, listing.float_value, listing.wear_name, cfg.buff_float_sensitivity
+    ) if buff_base else None
 
     if not routes:
         if is_rank_find:
@@ -213,7 +213,8 @@ def evaluate(
         else:
             return None
 
-    routes.sort(key=lambda r: r.profit_abs, reverse=True)
+    # ТОП по ПРОЦЕНТУ — лучший путь = наибольший профит в %
+    routes.sort(key=lambda r: r.profit_pct, reverse=True)
     best = routes[0]
 
     # Пороги прибыли (топовый ранг по флоату пропускаем мимо порогов)

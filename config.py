@@ -115,9 +115,9 @@ class Config:
     # Площадки покупки (можно включать/выключать в меню «Источники»)
     csfloat_enabled: bool = True
 
-    # market.csgo как площадка продажи/сравнения. По умолчанию ВЫКЛ —
-    # профит считается по средней цене всех площадок.
-    market_enabled: bool = False
+    # market.csgo как площадка продажи (цена там высокая = может дать хороший %).
+    # В среднюю НЕ идёт (выброс), но как путь продажи участвует в «лучшем пути».
+    market_enabled: bool = True
 
     # Skinport (публичный API). По умолчанию ВЫКЛ.
     skinport_enabled: bool = False
@@ -182,7 +182,7 @@ class Config:
         cfg.check_live_status = _get_bool("CHECK_LIVE_STATUS", True)
         cfg.analyze_stability = _get_bool("ANALYZE_STABILITY", True)
         cfg.csfloat_enabled = _get_bool("CSFLOAT_ENABLED", True)
-        cfg.market_enabled = _get_bool("MARKET_CSGO_ENABLED", False)
+        cfg.market_enabled = _get_bool("MARKET_CSGO_ENABLED", True)
         cfg.avg_fee = _get_float("AVG_FEE", 0.05)
         cfg.buff_enabled = _get_bool("BUFF_ENABLED", True)
         cfg.buff_fee = _get_float("BUFF_FEE", 0.025)
